@@ -51,6 +51,34 @@
         return url;
     };
 
+    const MenuOptions = {
+        head: null,
+        init: (head) => {
+            MenuOptions.head = {div: head};
+        },
+        create: (text, checked=true) => {
+            const o = {
+                div: document.createElement('div'),
+                checkbox: document.createElement('input')
+            };
+            o.div.style.marginBottom = '10px';
+            o.div.innerText = text;
+            o.checkbox.type = 'checkbox';
+            o.checkbox.checked = checked;
+            o.checkbox.classList.add('option_style_6');
+            o.div.insertBefore(o.checkbox, o.div.childNodes[0]);
+            return o;
+        },
+        insert: (...options) => {
+            let prev = MenuOptions.head;
+            options.forEach(option => {
+                insertAfter(prev.div, option.div);
+                prev = option;
+            });
+            MenuOptions.head = prev;
+        }
+    };
+
     const settings = JSON.parse(window.localStorage.getItem('5ch Enhancer')) || {
         isVisible: true,
         isDraggable: true,
@@ -216,58 +244,37 @@
 
         setTimeout(() => {
             try {
-                const lastOption = document.querySelector('div.option_style_8');
-                const disables = [];
+                MenuOptions.init(document.querySelector('div.option_style_8'));
 
-                const thumbnailOption = document.createElement('div');
-                thumbnailOption.style.marginBottom = '10px';
-                thumbnailOption.innerText = 'サムネイル画像を表示する';
-                const thumbnailCheckbox = document.createElement('input');
-                thumbnailCheckbox.type = 'checkbox';
-                thumbnailCheckbox.checked = settings.isVisible;
-                thumbnailCheckbox.classList.add('option_style_6');
-                thumbnailCheckbox.addEventListener('click', () => {
-                    disables.forEach(d => { d.disabled = !thumbnailCheckbox.checked });
+                const thumbnailOption = MenuOptions.create('サムネイル画像を表示する', settings.isVisible);
+                thumbnailOption.disables = [];
+                thumbnailOption.checkbox.addEventListener('click', () => {
+                    thumbnailOption.disables.forEach(d => { d.disabled = !thumbnailOption.checkbox.checked });
                 });
-                thumbnailOption.insertBefore(thumbnailCheckbox, thumbnailOption.childNodes[0]);
-                insertAfter(lastOption, thumbnailOption);
 
-                const dragOption = document.createElement('div');
-                dragOption.style.marginBottom = '10px';
-                dragOption.innerText = 'ドラッグで画像を移動する';
-                const dragCheckbox = document.createElement('input');
-                dragCheckbox.type = 'checkbox';
-                dragCheckbox.checked = settings.isDraggable;
-                dragCheckbox.classList.add('option_style_6');
-                dragCheckbox.disabled = !settings.isVisible;
-                disables.push(dragCheckbox);
-                dragOption.insertBefore(dragCheckbox, dragOption.childNodes[0]);
-                insertAfter(thumbnailOption, dragOption);
+                const dragOption = MenuOptions.create('ドラッグで画像を移動する', settings.isDraggable);
+                dragOption.checkbox.disabled = !settings.isVisible;
+                thumbnailOption.disables.push(dragOption.checkbox);
 
-                const embedOption = document.createElement('div');
-                embedOption.style.marginBottom = '10px';
-                embedOption.innerText = 'ツイートを埋め込む';
-                const embedCheckbox = document.createElement('input');
-                embedCheckbox.type = 'checkbox';
-                embedCheckbox.checked = settings.isEmbedded;
-                embedCheckbox.classList.add('option_style_6');
-                embedOption.insertBefore(embedCheckbox, embedOption.childNodes[0]);
-                insertAfter(dragOption, embedOption);
+                const embedOption = MenuOptions.create('ツイートを埋め込む', settings.isEmbedded);
 
-                const blockOption = document.createElement('div');
-                blockOption.innerText = 'ブロック（未実装）';
-                const blockButton = document.createElement('button');
-                blockButton.innerText = '設定';
-                blockButton.classList.add('btn');
-                blockButton.onclick = () => {};
-                blockOption.appendChild(blockButton);
-                insertAfter(embedOption, blockOption);
+                const blockOption = {
+                    div: document.createElement('div'),
+                    button: document.createElement('button')
+                };
+                blockOption.div.innerText = 'ブロック（未実装）';
+                blockOption.button.innerText = '設定';
+                blockOption.button.classList.add('btn');
+                blockOption.button.onclick = () => {};
+                blockOption.div.appendChild(blockOption.button);
+
+                MenuOptions.insert(thumbnailOption, dragOption, embedOption, blockOption);
 
                 const saveButton = document.getElementById('saveOptions');
-                saveButton.addEventListener('click', function(e) {
-                    settings.isVisible = thumbnailCheckbox.checked;
-                    settings.isDraggable = dragCheckbox.checked;
-                    settings.isEmbedded = embedCheckbox.checked;
+                saveButton.addEventListener('click', () => {
+                    settings.isVisible = thumbnailOption.checkbox.checked;
+                    settings.isDraggable = dragOption.checkbox.checked;
+                    settings.isEmbedded = embedOption.checkbox.checked;
                     modal.img.draggable = !settings.isDraggable;
                     window.localStorage.setItem('5ch Enhancer', JSON.stringify(settings));
                 });
