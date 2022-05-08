@@ -33,13 +33,20 @@
     };
     //const placeholderSrc = (width, height) => `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}"%3E%3C/svg%3E`;
     const trimTwitterImageUrl = (url) => {
-        if (!url.includes('twimg')) { return url; }
-        //const matchResult = url.matches(/twimg(.+?(name=|:))?/);
-        if (url.endsWith(':orig') || url.endsWith('name=orig')) { return url; }
+        if (!url.includes('twimg')) {
+            return url;
+        }
+        if (url.endsWith('orig')) {
+            return url;
+        }
         if (url.endsWith('&')) {
-            url += 'name=orig';
-        } else if (!url.replace('://', '').includes(':')) {
-            url += ':orig';
+            return `${url}name=orig`;
+        }
+        const suffixes = ['large', 'medium', 'small', '900x900', 'thumb'];
+        for (const suffix of suffixes) {
+            if (url.endsWith(suffix)) {
+                return `${url.substring(0, url.length - suffix.length)}orig`;
+            }
         }
         return url;
     };
@@ -269,10 +276,8 @@
 
         const urls = document.querySelectorAll('span.escaped a, dl.thread dd a');
         urls.forEach(url => {
-            //const matchResult = url.href.match(/^https?:\/\/jump\..+?\/\?/);
             const matchResult = url.href.match(/^.+?\/\?./);
             if (matchResult) {
-                //url.href = url.href.substring(matchResult[0].length);
                 url.href = url.innerText;
             }
             if (settings.isEmbedded && url.innerText.match(/twitter\.com\/.+?\/status\/./)) {
