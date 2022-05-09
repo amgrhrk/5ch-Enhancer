@@ -12,6 +12,8 @@
 // @match        https://*.2ch.sc/*
 // @match        http://*.bbspink.com/*
 // @match        https://*.bbspink.com/*
+// @exclude      http://info.5ch.net/*
+// @exclude      https://info.5ch.net/*
 // @run-at       document-start
 // @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
 // @grant        GM_xmlhttpRequest
@@ -175,6 +177,11 @@
         }
 
         const modal = {};
+        modal.imgs = {
+            map: new Map(),
+            array: [],
+            index: 0
+        };
         modal.container = document.createElement('div');
         modal.container.style.display = 'none';
         modal.container.style.position = 'fixed';
@@ -184,19 +191,43 @@
         modal.container.style.height = '100%';
         modal.container.style.zIndex = '2';
         modal.container.style.overflow = 'auto';
-        modal.container.addEventListener("click", function() {
+        window.addEventListener('keydown', (e) => {
+            if (modal.container.style.display === 'none' || e.repeat || modal.imgs.array.length === 0) { return; }
+            switch (e.keyCode) {
+                case 65:
+                case 87:
+                    modal.imgs.index--;
+                    break;
+                case 68:
+                case 83:
+                    modal.imgs.index++;
+                    break;
+            }
+            if (modal.imgs.index < 0) {
+                modal.imgs.index = modal.imgs.array.length - 1;
+            } else if (modal.imgs.index >= modal.imgs.array.length) {
+                modal.imgs.index = 0;
+            }
+            const nextImg = modal.imgs.array[modal.imgs.index];
+            if (nextImg.src === '') {
+                nextImg.src = nextImg.dataset.src;
+                imgObserver.unobserve(nextImg);
+            }
+            modal.img.src = nextImg.src;
+        });
+        modal.container.addEventListener("click", () => {
             if (modal.isDragging && settings.isDraggable) { return; }
             modal.container.style.display = 'none';
             document.body.style.overflow = modal.overflow;
         });
-        modal.container.addEventListener('mousedown', function(e) {
+        modal.container.addEventListener('mousedown', (e) => {
             if (!settings.isDraggable) { return; }
             modal.isDown = true;
             modal.isDragging = false;
             modal.startX = e.screenX;
             modal.startY = e.screenY;
         });
-        window.addEventListener('mousemove', function(e) {
+        window.addEventListener('mousemove', (e) => {
             if (!settings.isDraggable) { return; }
             const threshold = 1;
             const deltaX = Math.abs(e.screenX - modal.previousX);
@@ -213,7 +244,7 @@
                 modal.isDragging = false;
             }
         });
-        window.addEventListener('mouseup', function() {
+        window.addEventListener('mouseup', () => {
             if (!settings.isDraggable) { return; }
             modal.isDown = false;
         });
@@ -224,6 +255,7 @@
         document.body.appendChild(modal.container);
 
         const imgOnclick = function() {
+            modal.imgs.index = modal.imgs.map.get(this);
             modal.img.src = this.src;
             modal.overflow = document.body.style.overflow;
             document.body.style.overflow = 'hidden';
@@ -239,6 +271,7 @@
             imgObserver.observe(img);
             fragment.appendChild(img);
             insertAfter(element, fragment);
+            return img;
         };
 
         setTimeout(() => {
@@ -290,7 +323,7 @@
                 GM_xmlhttpRequest({
                     method: 'GET',
                     url: `https://publish.twitter.com/oembed?url=${url.innerText}`,
-                    onload: function(response) {
+                    onload: (response) => {
                         const tweet = createTweet(response.responseText);
                         if (!tweet) { return; }
                         insertAfter(url, tweet);
@@ -308,7 +341,9 @@
                     }
                 });
             } else if (settings.isVisible && url.innerText.match(/jpg|jpeg|gif|png|bmp/)) {
-                appendImageAfter(url);
+                const img = appendImageAfter(url);
+                modal.imgs.map.set(img, modal.imgs.array.length);
+                modal.imgs.array.push(img);
             }
         });
     });
