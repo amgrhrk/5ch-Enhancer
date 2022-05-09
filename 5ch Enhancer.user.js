@@ -31,7 +31,6 @@
             return div;
         } catch (err) {}
     };
-    //const placeholderSrc = (width, height) => `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}"%3E%3C/svg%3E`;
     const trimTwitterImageUrl = (url) => {
         if (!url.includes('twimg')) {
             return url;
@@ -50,7 +49,6 @@
         }
         return url;
     };
-
     const MenuOptions = {
         head: null,
         init: (head) => {
@@ -85,23 +83,22 @@
         isEmbedded: true
     };
 
-    const twttr = (function() {
-        if (!settings.isEmbedded) { return null; }
-        unsafeWindow.twttr = (function(d, s, id) {
-            var js, fjs = d.getElementsByTagName(s)[0], t = unsafeWindow.twttr || {};
+    if (settings.isEmbedded) {
+        window.twttr = (function(d, s, id) {
+            var js, fjs = d.getElementsByTagName(s)[0],
+                t = window.twttr || {};
             if (d.getElementById(id)) return t;
             js = d.createElement(s);
             js.id = id;
-            js.src = 'https://platform.twitter.com/widgets.js';
+            js.src = "https://platform.twitter.com/widgets.js";
             fjs.parentNode.insertBefore(js, fjs);
             t._e = [];
             t.ready = function(f) {
                 t._e.push(f);
             };
             return t;
-        }(unsafeWindow.document, "script", "twitter-wjs"));
-        return unsafeWindow.twttr;
-    })();
+        }(document, "script", "twitter-wjs"));
+    }
 
     const observer = new MutationObserver(mutations => {
         mutations.forEach(mutation => {
@@ -290,7 +287,7 @@
             if (settings.isEmbedded && url.innerText.match(/twitter\.com\/.+?\/status\/./)) {
                 GM_xmlhttpRequest({
                     method: 'GET',
-                    url: `https://publish.twitter.com/oembed?url=${url}`,
+                    url: `https://publish.twitter.com/oembed?url=${url.innerText}`,
                     onload: function(response) {
                         const tweet = createTweet(response.responseText);
                         if (!tweet) { return; }
@@ -298,7 +295,6 @@
                         if (tweet.nextElementSibling && tweet.nextElementSibling.tagName === 'BR') {
                             tweet.nextElementSibling.remove();
                         }
-                        twttr.widgets.load(tweet);
                     }
                 });
             } else if (settings.isVisible && url.innerText.match(/jpg|jpeg|gif|png|bmp/)) {
