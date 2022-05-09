@@ -84,7 +84,7 @@
     };
 
     const twttr = (() => {
-        if (settings.isEmbedded) { return null; }
+        if (!settings.isEmbedded) { return null; }
         unsafeWindow.twttr = (function(d, s, id) {
             var js, fjs = d.getElementsByTagName(s)[0],
                 t = unsafeWindow.twttr || {};
@@ -297,7 +297,14 @@
                         if (tweet.nextElementSibling && tweet.nextElementSibling.tagName === 'BR') {
                             tweet.nextElementSibling.remove();
                         }
-                        twttr.widgets.load(tweet);
+                        (function retry(count=0) {
+                            if (count == 3) { return; }
+                            if (twttr.widgets && twttr.widgets.load) {
+                                twttr.widgets.load(tweet);
+                            } else {
+                                setTimeout(retry, 5000, count + 1);
+                            }
+                        })();
                     }
                 });
             } else if (settings.isVisible && url.innerText.match(/jpg|jpeg|gif|png|bmp/)) {
