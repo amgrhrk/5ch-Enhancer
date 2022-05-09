@@ -83,10 +83,11 @@
         isEmbedded: true
     };
 
-    if (settings.isEmbedded) {
-        window.twttr = (function(d, s, id) {
+    const twttr = (() => {
+        if (settings.isEmbedded) { return null; }
+        unsafeWindow.twttr = (function(d, s, id) {
             var js, fjs = d.getElementsByTagName(s)[0],
-                t = window.twttr || {};
+                t = unsafeWindow.twttr || {};
             if (d.getElementById(id)) return t;
             js = d.createElement(s);
             js.id = id;
@@ -97,8 +98,9 @@
                 t._e.push(f);
             };
             return t;
-        }(document, "script", "twitter-wjs"));
-    }
+        }(unsafeWindow.document, "script", "twitter-wjs"));
+        return unsafeWindow.twttr;
+    })();
 
     const observer = new MutationObserver(mutations => {
         mutations.forEach(mutation => {
@@ -295,6 +297,7 @@
                         if (tweet.nextElementSibling && tweet.nextElementSibling.tagName === 'BR') {
                             tweet.nextElementSibling.remove();
                         }
+                        twttr.widgets.load(tweet);
                     }
                 });
             } else if (settings.isVisible && url.innerText.match(/jpg|jpeg|gif|png|bmp/)) {
