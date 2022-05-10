@@ -79,11 +79,12 @@
         }
     };
 
-    const settings = JSON.parse(window.localStorage.getItem('5ch Enhancer')) || {
-        isVisible: true,
-        isDraggable: true,
-        isEmbedded: true
-    };
+    const settings = JSON.parse(window.localStorage.getItem('5ch Enhancer')) || {};
+    settings.isVisible = settings.isVisible === false ? false : true;
+    settings.isDraggable = settings.isDraggable === false ? false : true;
+    settings.isEmbedded = settings.isEmbedded === false ? false : true;
+    settings.isBlacklistEnabled = settings.isBlacklistEnabled === false ? false : true;
+    settings.blacklist = settings.blacklist || [];
 
     const twttr = (() => {
         if (!settings.isEmbedded) { return null; }
@@ -277,30 +278,64 @@
         setTimeout(() => {
             try {
                 MenuOptions.init(document.querySelector('div.option_style_8'));
-
                 const thumbnailOption = MenuOptions.create('サムネイル画像を表示する', settings.isVisible);
                 thumbnailOption.disables = [];
                 thumbnailOption.checkbox.addEventListener('click', () => {
                     thumbnailOption.disables.forEach(d => { d.disabled = !thumbnailOption.checkbox.checked });
                 });
-
                 const dragOption = MenuOptions.create('ドラッグで画像を移動する', settings.isDraggable);
                 dragOption.checkbox.disabled = !settings.isVisible;
                 thumbnailOption.disables.push(dragOption.checkbox);
-
                 const embedOption = MenuOptions.create('ツイートを埋め込む', settings.isEmbedded);
-
                 const blockOption = {
                     div: document.createElement('div'),
-                    button: document.createElement('button')
+                    button: document.createElement('button'),
                 };
-                blockOption.div.innerText = 'ブロック（未実装）';
+                blockOption.div.innerText = 'NGワード';
                 blockOption.button.innerText = '設定';
                 blockOption.button.classList.add('btn');
-                blockOption.button.onclick = () => {};
                 blockOption.div.appendChild(blockOption.button);
-
                 MenuOptions.insert(thumbnailOption, dragOption, embedOption, blockOption);
+
+                const blacklistOption = {
+                    container: document.createElement('div'),
+                    dialog: document.createElement('div'),
+                    textarea: document.createElement('textarea')
+                };
+                blacklistOption.container.style.display = 'none';
+                blacklistOption.container.style.position = 'fixed';
+                blacklistOption.container.style.top = '0';
+                blacklistOption.container.style.left = '0';
+                blacklistOption.container.style.width = '100%';
+                blacklistOption.container.style.height = '100%';
+                blacklistOption.container.style.zIndex = '14';
+                blacklistOption.container.style.overflow = 'auto';
+                blacklistOption.container.addEventListener('mouseup', (e) => e.stopPropagation());
+                blacklistOption.container.addEventListener('click', () => {
+                    blacklistOption.container.style.display = 'none';
+                });
+                blacklistOption.dialog.style.position = 'relative';
+                blacklistOption.dialog.style.margin = 'auto';
+                blacklistOption.dialog.style.top = '15%';
+                blacklistOption.dialog.style.width = '400px';
+                blacklistOption.dialog.style.height = '500px';
+                blacklistOption.dialog.style.padding = '20px';
+                blacklistOption.dialog.style.backgroundColor = 'white';
+                blacklistOption.dialog.style.overflow = 'hidden';
+                blacklistOption.dialog.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+                blacklistOption.container.appendChild(blacklistOption.dialog);
+                insertAfter(document.getElementById('optionView'), blacklistOption.container);
+                blockOption.button.onclick = () => {
+                    blacklistOption.container.style.display = '';
+                };
+                blacklistOption.textarea.style.boxSizing = 'border-box';
+                blacklistOption.textarea.style.width = '100%';
+                blacklistOption.textarea.style.height = '100%';
+                blacklistOption.textarea.style.resize = 'none';
+                blacklistOption.textarea.value = settings.blacklist.join('\n');
+                blacklistOption.dialog.appendChild(blacklistOption.textarea);
 
                 const saveButton = document.getElementById('saveOptions');
                 saveButton.addEventListener('click', () => {
@@ -308,10 +343,34 @@
                     settings.isDraggable = dragOption.checkbox.checked;
                     settings.isEmbedded = embedOption.checkbox.checked;
                     modal.img.draggable = !settings.isDraggable;
+                    settings.blacklist = blacklistOption.textarea.value.split('\n').filter(word => word.length > 0);
                     window.localStorage.setItem('5ch Enhancer', JSON.stringify(settings));
+                    blacklistOption.textarea.value = settings.blacklist.join('\n');
                 });
+                const cancels = [
+                    document.getElementById('cancelOptions'),
+                    document.getElementById('close_options'),
+                    document.querySelector('div.option_container_bg')
+                ];
+                const cancelF = () => {
+                    thumbnailOption.checkbox.checked = settings.isVisible;
+                    dragOption.checkbox.checked = settings.isDraggable;
+                    embedOption.checkbox.checked = settings.isEmbedded;
+                    thumbnailOption.disables.forEach(d => { d.disabled = !thumbnailOption.checkbox.checked });
+                    blacklistOption.textarea.value = settings.blacklist.join('\n');
+                };
+                cancels.forEach(cancel => cancel.addEventListener('click', cancelF));
             } catch (err) {}
         }, 2000);
+
+        if (settings.isBlacklistEnabled && settings.blacklist.length > 0) {
+            const comments = document.querySelectorAll('span.escaped, dl.thread dd');
+            comments.forEach(comment => {
+                if (settings.blacklist.some(word => comment.innerText.includes(word))) {
+                    comment.style.display = 'none';
+                }
+            });
+        }
 
         const urls = document.querySelectorAll('span.escaped a, dl.thread dd a');
         urls.forEach(url => {
