@@ -17,14 +17,26 @@
 // @run-at       document-start
 // @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
 // @grant        GM_xmlhttpRequest
+// @grant        GM_setValue
+// @grant        GM_getValue
 // @connect      twitter.com
 // ==/UserScript==
 
 (function() {
     'use strict';
+
+    /**
+     * @param {Node} first
+     * @param {Node} after
+     */
     const insertAfter = (first, after) => {
         first.parentNode.insertBefore(after, first.nextSibling);
     };
+
+    /**
+     * @param {string} json
+     * @returns {HTMLDivElement|undefined}
+     */
     const createTweet = (json) => {
         try {
             const obj = JSON.parse(json);
@@ -33,6 +45,11 @@
             return div;
         } catch (err) {}
     };
+
+    /**
+     * @param {string} url
+     * @returns {string}
+     */
     const trimTwitterImageUrl = (url) => {
         if (!url.includes('twimg')) {
             return url;
@@ -51,15 +68,47 @@
         }
         return url;
     };
+
+    /**
+     * @typedef MenuOption
+     * @type {object}
+     * @property {HTMLDivElement} div
+     * @property {HTMLInputElement} checkbox
+     * @property {Function} [onclick]
+     * @property {Function} [onconfirm]
+     * @property {Function} [oncancel]
+     */
+
     const MenuOptions = {
-        head: null,
-        init: (head) => {
-            MenuOptions.head = {div: head};
-        },
         /**
-         * options: { text: string, checked: boolean, onclick: f, onconfirm: f, oncancel: f }
+         * @private
+         * @type {MenuOption}
+         */
+        head: null,
+
+        /**
+         * @param {HTMLDivElement} head
+         * @returns {boolean}
+         */
+        init: (head) => {
+            if (head) {
+                MenuOptions.head = {div: head};
+                return true;
+            }
+            return false;
+        },
+
+        /**
+         * @param {object} options
+         * @param {string} [options.text]
+         * @param {boolean} [options.checked]
+         * @param {Function} [options.onclick]
+         * @param {Function} [options.onconfirm]
+         * @param {Function} [options.oncancel]
+         * @returns {MenuOption}
          */
         create: (options) => {
+            /** @type {MenuOption} */
             const o = {
                 div: document.createElement('div'),
                 checkbox: document.createElement('input')
@@ -72,11 +121,19 @@
             if (options.onclick) {
                 o.checkbox.addEventListener('click', options.onclick);
             }
-            o.onconfirm = options.onconfirm;
-            o.oncancel = options.oncancel;
+            if (options.onconfirm) {
+                o.onconfirm = options.onconfirm;
+            }
+            if (options.oncancel) {
+                o.oncancel = options.oncancel;
+            }
             o.div.insertBefore(o.checkbox, o.div.childNodes[0]);
             return o;
         },
+
+        /**
+         * @param  {...MenuOption} options
+         */
         insert: (...options) => {
             let prev = MenuOptions.head;
             options.forEach(option => {
@@ -85,6 +142,7 @@
             });
             MenuOptions.head = prev;
         },
+
         toggleDisable: function() {
             this.disables.forEach(d => {
                 d.disabled = !this.checked;
@@ -92,12 +150,21 @@
         }
     };
 
-    const settings = JSON.parse(window.localStorage.getItem('5ch Enhancer')) || {};
-    settings.isVisible = settings.isVisible === false ? false : true;
-    settings.isDraggable = settings.isDraggable === false ? false : true;
-    settings.isEmbedded = settings.isEmbedded === false ? false : true;
-    settings.isBlocked = settings.isBlocked === false ? false : true;
-    settings.blacklist = settings.blacklist || [];
+    /**
+     * @type {{isVisible: boolean, isDraggable: boolean,
+     *         isEmbedded: boolean, isBlocked: boolean,
+     *         blacklist: string[]}}
+     */
+    const settings = (() => {
+        const defaultSettings = {
+            isVisible: true,
+            isDraggable: true,
+            isEmbedded: true,
+            isBlocked: true,
+            blacklist: []
+        };
+        return Object.assign(defaultSettings, GM_getValue('5ch Enhancer'));
+    })();
 
     const twttr = (() => {
         if (!settings.isEmbedded) { return null; }
@@ -192,7 +259,9 @@
 
         const modal = {};
         modal.imgs = {
+            /** @type {Map<HTMLImageElement, number>} */
             map: new Map(),
+            /** @type {HTMLImageElement[]} */
             array: [],
             index: 0
         };
@@ -275,6 +344,11 @@
             document.body.style.overflow = 'hidden';
             modal.container.style.display = 'flex';
         };
+
+        /**
+         * @param {HTMLElement} element
+         * @returns {HTMLImageElement}
+         */
         const appendImageAfter = (element) => {
             const fragment = document.createDocumentFragment();
             fragment.appendChild(document.createElement('br'));
@@ -289,8 +363,7 @@
         };
 
         setTimeout(() => {
-            MenuOptions.init(document.querySelector('div.option_style_8'));
-            if (!MenuOptions.head) { return; }
+            if (!MenuOptions.init(document.querySelector('div.option_style_8'))) { return; }
             const thumbnailOption = MenuOptions.create({
                 text: 'サムネイル画像を表示する',
                 checked: settings.isVisible,
@@ -393,7 +466,7 @@
                 modal.img.draggable = !settings.isDraggable;
                 blockOption.onconfirm();
                 settings.blacklist = blacklistOption.textarea.value.split('\n').filter(word => word.length > 0);
-                window.localStorage.setItem('5ch Enhancer', JSON.stringify(settings));
+                GM_setValue('5ch Enhancer', settings);
                 blacklistOption.textarea.value = settings.blacklist.join('\n');
             });
             const cancels = [
