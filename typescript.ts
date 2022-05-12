@@ -1,4 +1,29 @@
+// ==UserScript==
+// @name         5ch Enhancer
+// @namespace    amgrhrk
+// @version      0.1
+// @description  Shows thumbnail previews and tweets for 5ch threads, and more.
+// @description:ja 5ちゃんねるのスレにある画像のサムネイルとツイートを表示します+α
+// @description:zh-cn 显示5ch串里图片链接的缩略图
+// @author       文件
+// @match        http://*.5ch.net/*
+// @match        https://*.5ch.net/*
+// @match        http://*.2ch.sc/*
+// @match        https://*.2ch.sc/*
+// @match        http://*.bbspink.com/*
+// @match        https://*.bbspink.com/*
+// @exclude      http://info.5ch.net/*
+// @exclude      https://info.5ch.net/*
+// @run-at       document-start
+// @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
+// @grant        GM_xmlhttpRequest
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @connect      twitter.com
+// ==/UserScript==
+
 (function () {
+    "use strict"
     function GM_xmlhttpRequest(object: object) { }
     function GM_setValue(string: string, object: object) { }
     function GM_getValue(string: string, object?: object) { }
