@@ -125,6 +125,58 @@
         constructor(init: MenuOptionInit) {
             super(init)
             this.button = document.createElement('button')
+            this.button.innerText = '設定'
+            this.button.classList.add('btn')
+            this.button.style.marginLeft = '4px'
+            this.div.appendChild(this.button);
+        }
+    }
+
+    class PopupWindow {
+        container: HTMLDivElement
+        dialog: HTMLDivElement
+        textarea: HTMLTextAreaElement
+        onconfirm: () => void
+        oncancel: () => void
+
+        constructor(openButton: HTMLButtonElement, list: string[], onconfirm: () => void, oncancel: () => void) {
+            this.container = document.createElement('div')
+            this.container.style.display = 'none'
+            this.container.style.position = 'fixed'
+            this.container.style.top = '0'
+            this.container.style.left = '0'
+            this.container.style.width = '100%'
+            this.container.style.height = '100%'
+            this.container.style.zIndex = '14'
+            this.container.style.overflow = 'auto'
+            this.container.addEventListener('mouseup', (e) => e.stopPropagation())
+            this.container.addEventListener('click', () => {
+                this.container.style.display = 'none'
+            })
+            this.dialog = document.createElement('div')
+            this.dialog.style.position = 'relative'
+            this.dialog.style.margin = 'auto'
+            this.dialog.style.top = '15%'
+            this.dialog.style.width = '400px'
+            this.dialog.style.height = '500px'
+            this.dialog.style.padding = '20px'
+            this.dialog.style.backgroundColor = 'white'
+            this.dialog.style.overflow = 'hidden'
+            this.dialog.addEventListener('click', (e) => e.stopPropagation())
+            this.container.appendChild(this.dialog)
+            insertAfter(document.getElementById('optionView')!, this.container)
+            openButton.addEventListener('click', () => {
+                this.container.style.display = ''
+            })
+            this.textarea = document.createElement('textarea')
+            this.textarea.style.boxSizing = 'border-box'
+            this.textarea.style.width = '100%'
+            this.textarea.style.height = '100%'
+            this.textarea.style.resize = 'none'
+            this.textarea.value = list.join('\n')
+            this.dialog.appendChild(this.textarea)
+            this.onconfirm = onconfirm
+            this.oncancel = oncancel
         }
     }
 
@@ -134,7 +186,9 @@
             isDraggable: true,
             isEmbedded: true,
             isBlocked: true,
-            blacklist: [] as string[]
+            isSB: true,
+            blacklist: [] as string[],
+            sblist: [] as string[]
         }
         return Object.assign(defaultSettings, GM_getValue('5ch Enhancer'))
     })()
@@ -341,7 +395,7 @@
                 },
                 oncancel: () => {
                     thumbnailOption.checkbox.checked = settings.isVisible
-                    MenuOption.toggleDisable.call(thumbnailOption.checkbox)
+                    MenuOption.toggleDisable.call(thumbnailOption.checkbox as any)
                 }
             });
             (thumbnailOption.checkbox as any).disables = []
@@ -376,55 +430,48 @@
                 },
                 oncancel: () => {
                     blockOption.checkbox.checked = settings.isBlocked
-                    MenuOption.toggleDisable.call(blockOption.checkbox)
+                    MenuOption.toggleDisable.call(blockOption.checkbox as any)
                 }
             });
-            (blockOption.checkbox as any).disables = []
-            blockOption.button = document.createElement('button')
-            blockOption.button.innerText = '設定'
-            blockOption.button.classList.add('btn')
-            blockOption.button.style.marginLeft = '4px'
-            blockOption.div.appendChild(blockOption.button);
+            blockOption.button.disabled = !settings.isBlocked;
+            (blockOption.checkbox as any).disables = [];
             (blockOption.checkbox as any).disables.push(blockOption.button)
-            MenuOption.insert(thumbnailOption, dragOption, embedOption, blockOption)
-
-            const blacklistOption = {
-                container: document.createElement('div'),
-                dialog: document.createElement('div'),
-                textarea: document.createElement('textarea')
-            }
-            blacklistOption.container.style.display = 'none'
-            blacklistOption.container.style.position = 'fixed'
-            blacklistOption.container.style.top = '0'
-            blacklistOption.container.style.left = '0'
-            blacklistOption.container.style.width = '100%'
-            blacklistOption.container.style.height = '100%'
-            blacklistOption.container.style.zIndex = '14'
-            blacklistOption.container.style.overflow = 'auto'
-            blacklistOption.container.addEventListener('mouseup', (e) => e.stopPropagation())
-            blacklistOption.container.addEventListener('click', () => {
-                blacklistOption.container.style.display = 'none'
-            })
-            blacklistOption.dialog.style.position = 'relative'
-            blacklistOption.dialog.style.margin = 'auto'
-            blacklistOption.dialog.style.top = '15%'
-            blacklistOption.dialog.style.width = '400px'
-            blacklistOption.dialog.style.height = '500px'
-            blacklistOption.dialog.style.padding = '20px'
-            blacklistOption.dialog.style.backgroundColor = 'white'
-            blacklistOption.dialog.style.overflow = 'hidden'
-            blacklistOption.dialog.addEventListener('click', (e) => e.stopPropagation())
-            blacklistOption.container.appendChild(blacklistOption.dialog)
-            insertAfter(document.getElementById('optionView')!, blacklistOption.container)
-            blockOption.button.onclick = () => {
-                blacklistOption.container.style.display = ''
-            }
-            blacklistOption.textarea.style.boxSizing = 'border-box'
-            blacklistOption.textarea.style.width = '100%'
-            blacklistOption.textarea.style.height = '100%'
-            blacklistOption.textarea.style.resize = 'none'
-            blacklistOption.textarea.value = settings.blacklist.join('\n')
-            blacklistOption.dialog.appendChild(blacklistOption.textarea)
+            const blockOptionPopupWindow = new PopupWindow(
+                blockOption.button, settings.blacklist,
+                () => {
+                    settings.blacklist = blockOptionPopupWindow.textarea.value.split('\n').filter(word => word.length > 0)
+                    blockOptionPopupWindow.textarea.value = settings.blacklist.join('\n')
+                },
+                () => {
+                    blockOptionPopupWindow.textarea.value = settings.blacklist.join('\n')
+                }
+            )
+            const sbiPhoneOption = new MenuOptionWithButton({
+                text: 'SB-iPhone特殊対策',
+                checked: settings.isSB,
+                onclick: MenuOption.toggleDisable,
+                onconfirm: () => {
+                    settings.isSB = sbiPhoneOption.checkbox.checked
+                },
+                oncancel: () => {
+                    sbiPhoneOption.checkbox.checked = settings.isSB
+                    MenuOption.toggleDisable.call(sbiPhoneOption.checkbox as any)
+                }
+            });
+            sbiPhoneOption.button.disabled = !settings.isSB;
+            (sbiPhoneOption.checkbox as any).disables = [];
+            (sbiPhoneOption.checkbox as any).disables.push(sbiPhoneOption.button)
+            const sbiPhoneOptionPopupWindow = new PopupWindow(
+                sbiPhoneOption.button, settings.sblist,
+                () => {
+                    settings.sblist = sbiPhoneOptionPopupWindow.textarea.value.split('\n').filter(word => word.length > 0)
+                    sbiPhoneOptionPopupWindow.textarea.value = settings.sblist.join('\n')
+                },
+                () => {
+                    sbiPhoneOptionPopupWindow.textarea.value = settings.sblist.join('\n')
+                }
+            )
+            MenuOption.insert(thumbnailOption, dragOption, embedOption, blockOption, sbiPhoneOption)
 
             const saveButton = document.getElementById('saveOptions')
             saveButton?.addEventListener('click', () => {
@@ -433,9 +480,10 @@
                 embedOption.onconfirm()
                 modal.img.draggable = !settings.isDraggable
                 blockOption.onconfirm()
-                settings.blacklist = blacklistOption.textarea.value.split('\n').filter(word => word.length > 0)
+                blockOptionPopupWindow.onconfirm()
+                sbiPhoneOption.onconfirm()
+                sbiPhoneOptionPopupWindow.onconfirm()
                 GM_setValue('5ch Enhancer', settings)
-                blacklistOption.textarea.value = settings.blacklist.join('\n')
             })
             const cancels = [
                 document.getElementById('cancelOptions'),
@@ -447,7 +495,9 @@
                 dragOption.oncancel()
                 embedOption.oncancel()
                 blockOption.oncancel()
-                blacklistOption.textarea.value = settings.blacklist.join('\n')
+                blockOptionPopupWindow.oncancel()
+                sbiPhoneOption.oncancel()
+                sbiPhoneOptionPopupWindow.oncancel()
             }
             cancels.forEach(cancel => cancel?.addEventListener('click', cancelF))
         }, 2000)
