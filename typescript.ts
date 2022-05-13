@@ -104,8 +104,8 @@
             MenuOption.head = prev
         }
 
-        static toggleDisable(this: any) {
-            this.disables.forEach((d: any) => {
+        static toggleDisable(this: (HTMLInputElement & {disables: HTMLInputElement[] | HTMLButtonElement[]})) {
+            this.disables.forEach(d => {
                 d.disabled = !this.checked
             })
         }
@@ -169,8 +169,8 @@
     });
 
     (observer as any).dealWith = (() => {
-        const functionMap: any = {}
-        functionMap['https://agree.5ch.net/js/thumbnailer.js'] = function () {
+        const functionMap: Record<string, () => void> = {}
+        functionMap['https://agree.5ch.net/js/thumbnailer.js'] = function (this: HTMLElement) {
             this.remove()
         }
         return (node: HTMLScriptElement) => {
@@ -186,7 +186,7 @@
     const imgObserver = new IntersectionObserver(entries => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
-                (entry.target as HTMLImageElement).src = (entry.target as any).dataset.src
+                (entry.target as HTMLImageElement).src = (entry.target as HTMLImageElement).dataset.src ?? '';
                 imgObserver.unobserve(entry.target)
             }
         })
@@ -214,9 +214,9 @@
         const threads = document.querySelector('div.THREAD_MENU > div')
         if (threads) {
             for (const thread of threads.children) {
-                const number: any = thread.firstElementChild
-                const title: any = thread.lastElementChild
-                title.href = number?.href.slice(0, -3)
+                const number = thread.firstElementChild as HTMLAnchorElement
+                const title = thread.lastElementChild as HTMLAnchorElement
+                title.href = number.href.slice(0, -3)
                 title.target = '_blank'
                 title.rel = 'noopener'
             }
@@ -309,7 +309,7 @@
         modal.container.appendChild(modal.img)
         document.body.appendChild(modal.container)
 
-        const imgOnclick = function (this: any) {
+        const imgOnclick = function (this: HTMLImageElement) {
             modal.imgs.index = modal.imgs.map.get(this) ?? 0
             modal.img.src = this.src
             modal.overflow = document.body.style.overflow
@@ -415,10 +415,7 @@
             blacklistOption.dialog.style.overflow = 'hidden'
             blacklistOption.dialog.addEventListener('click', (e) => e.stopPropagation())
             blacklistOption.container.appendChild(blacklistOption.dialog)
-            const optionView = document.getElementById('optionView')
-            if (optionView) {
-                insertAfter(optionView, blacklistOption.container)
-            }
+            insertAfter(document.getElementById('optionView')!, blacklistOption.container)
             blockOption.button.onclick = () => {
                 blacklistOption.container.style.display = ''
             }
@@ -473,8 +470,8 @@
             if (settings.isEmbedded && url.innerText.match(/twitter\.com\/.+?\/status\/./)) {
                 GM_xmlhttpRequest({
                     method: 'GET',
-                    url: `https://publish.twitter.com/oembed?url=${url.innerText}`,
-                    onload: (response: any) => {
+                    url: `https://publish.twitter.com/oembed?url=${url.innerText}&omit_script=true`,
+                    onload: (response: XMLHttpRequest) => {
                         const tweet = createTweet(response.responseText)
                         if (!tweet) { return }
                         insertAfter(url, tweet)

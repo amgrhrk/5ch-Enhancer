@@ -83,7 +83,7 @@
             MenuOption.head = prev;
         }
         static toggleDisable() {
-            this.disables.forEach((d) => {
+            this.disables.forEach(d => {
                 d.disabled = !this.checked;
             });
         }
@@ -155,8 +155,9 @@
     observer.observe(document, { childList: true, subtree: true });
     const imgObserver = new IntersectionObserver(entries => {
         entries.forEach(entry => {
+            var _a;
             if (entry.isIntersecting) {
-                entry.target.src = entry.target.dataset.src;
+                entry.target.src = (_a = entry.target.dataset.src) !== null && _a !== void 0 ? _a : '';
                 imgObserver.unobserve(entry.target);
             }
         });
@@ -183,7 +184,7 @@
             for (const thread of threads.children) {
                 const number = thread.firstElementChild;
                 const title = thread.lastElementChild;
-                title.href = number === null || number === void 0 ? void 0 : number.href.slice(0, -3);
+                title.href = number.href.slice(0, -3);
                 title.target = '_blank';
                 title.rel = 'noopener';
             }
@@ -394,10 +395,7 @@
             blacklistOption.dialog.style.overflow = 'hidden';
             blacklistOption.dialog.addEventListener('click', (e) => e.stopPropagation());
             blacklistOption.container.appendChild(blacklistOption.dialog);
-            const optionView = document.getElementById('optionView');
-            if (optionView) {
-                insertAfter(optionView, blacklistOption.container);
-            }
+            insertAfter(document.getElementById('optionView'), blacklistOption.container);
             blockOption.button.onclick = () => {
                 blacklistOption.container.style.display = '';
             };
@@ -449,7 +447,7 @@
             if (settings.isEmbedded && url.innerText.match(/twitter\.com\/.+?\/status\/./)) {
                 GM_xmlhttpRequest({
                     method: 'GET',
-                    url: `https://publish.twitter.com/oembed?url=${url.innerText}`,
+                    url: `https://publish.twitter.com/oembed?url=${url.innerText}&omit_script=true`,
                     onload: (response) => {
                         const tweet = createTweet(response.responseText);
                         if (!tweet) {
