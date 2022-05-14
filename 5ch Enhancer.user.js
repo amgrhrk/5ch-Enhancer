@@ -57,6 +57,23 @@
         }
         return url;
     }
+    function getHash(img, callback) {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        context.drawImage(img, 0, 0);
+        canvas.toBlob(blob => {
+            (function retry(count = 0) {
+                if (BlockHash && BlockHash.blockhash) {
+                    BlockHash.blockhash(blob, 16, 2, callback);
+                }
+                else {
+                    setTimeout(retry, 5000, count + 1);
+                }
+            })();
+        }, 'image/jpeg', 80);
+    }
     class MenuOption {
         constructor(init) {
             var _a, _b;
@@ -106,7 +123,7 @@
         }
     }
     class PopupWindow {
-        constructor(openButton, list, onconfirm, oncancel) {
+        constructor(openButton, set, onconfirm, oncancel) {
             this.container = document.createElement('div');
             this.container.style.display = 'none';
             this.container.style.position = 'fixed';
@@ -140,7 +157,7 @@
             this.textarea.style.width = '100%';
             this.textarea.style.height = '100%';
             this.textarea.style.resize = 'none';
-            this.textarea.value = list.join('\n');
+            this.textarea.value = Array.from(set).join('\n');
             this.dialog.appendChild(this.textarea);
             this.onconfirm = onconfirm;
             this.oncancel = oncancel;
@@ -153,10 +170,24 @@
             isEmbedded: true,
             isBlocked: true,
             isSB: true,
-            blacklist: [],
-            sblist: []
+            blacklist: new Set(),
+            sblist: new Set(),
+            save: () => {
+                const gmSettings = {};
+                Object.assign(gmSettings, defaultSettings);
+                gmSettings.blacklist = Array.from(gmSettings.blacklist);
+                gmSettings.sblist = Array.from(gmSettings.sblist);
+                GM_setValue('5ch Enhancer', gmSettings);
+            }
         };
-        return Object.assign(defaultSettings, GM_getValue('5ch Enhancer'));
+        const gmSettings = GM_getValue('5ch Enhancer');
+        if (Array.isArray(gmSettings.blacklist)) {
+            gmSettings.blacklist = new Set(gmSettings.blacklist);
+        }
+        if (Array.isArray(gmSettings.sblist)) {
+            gmSettings.sblist = new Set(gmSettings.sblist);
+        }
+        return Object.assign(defaultSettings, gmSettings);
     })();
     const twttr = (() => {
         if (!settings.isEmbedded) {
@@ -177,6 +208,27 @@
             return t;
         }(unsafeWindow.document, "script", "twitter-wjs"));
         return unsafeWindow.twttr;
+    })();
+    (() => {
+        if (!settings.isSB) {
+            return;
+        }
+        unsafeWindow.BlockHash = ((d, id) => {
+            const t = unsafeWindow.BlockHash || {};
+            if (d.getElementById(id)) {
+                return t;
+            }
+            const fjs = d.getElementsByTagName('script')[0];
+            const js = d.createElement('script');
+            js.id = id;
+            js.src = 'https://cdn.jsdelivr.net/gh/amgrhrk/5ch-Enhancer/blockhash.js';
+            fjs.parentNode.insertBefore(js, fjs);
+            t._e = [];
+            t.ready = function (f) {
+                t._e.push(f);
+            };
+            return t;
+        })(unsafeWindow.document, 'blockhash');
     })();
     const observer = new MutationObserver(mutations => {
         mutations.forEach(mutation => {
@@ -411,10 +463,10 @@
             blockOption.checkbox.disables = [];
             blockOption.checkbox.disables.push(blockOption.button);
             const blockOptionPopupWindow = new PopupWindow(blockOption.button, settings.blacklist, () => {
-                settings.blacklist = blockOptionPopupWindow.textarea.value.split('\n').filter(word => word.length > 0);
-                blockOptionPopupWindow.textarea.value = settings.blacklist.join('\n');
+                settings.blacklist = new Set(blockOptionPopupWindow.textarea.value.split('\n').filter(word => word.length > 0));
+                blockOptionPopupWindow.textarea.value = Array.from(settings.blacklist).join('\n');
             }, () => {
-                blockOptionPopupWindow.textarea.value = settings.blacklist.join('\n');
+                blockOptionPopupWindow.textarea.value = Array.from(settings.blacklist).join('\n');
             });
             const sbiPhoneOption = new MenuOptionWithButton({
                 text: 'SB-iPhone特殊対策',
@@ -432,10 +484,10 @@
             sbiPhoneOption.checkbox.disables = [];
             sbiPhoneOption.checkbox.disables.push(sbiPhoneOption.button);
             const sbiPhoneOptionPopupWindow = new PopupWindow(sbiPhoneOption.button, settings.sblist, () => {
-                settings.sblist = sbiPhoneOptionPopupWindow.textarea.value.split('\n').filter(word => word.length > 0);
-                sbiPhoneOptionPopupWindow.textarea.value = settings.sblist.join('\n');
+                settings.sblist = new Set(sbiPhoneOptionPopupWindow.textarea.value.split('\n').filter(word => word.length > 0));
+                sbiPhoneOptionPopupWindow.textarea.value = Array.from(settings.sblist).join('\n');
             }, () => {
-                sbiPhoneOptionPopupWindow.textarea.value = settings.sblist.join('\n');
+                sbiPhoneOptionPopupWindow.textarea.value = Array.from(settings.sblist).join('\n');
             });
             MenuOption.insert(thumbnailOption, dragOption, embedOption, blockOption, sbiPhoneOption);
             const saveButton = document.getElementById('saveOptions');
@@ -448,7 +500,7 @@
                 blockOptionPopupWindow.onconfirm();
                 sbiPhoneOption.onconfirm();
                 sbiPhoneOptionPopupWindow.onconfirm();
-                GM_setValue('5ch Enhancer', settings);
+                settings.save()
             });
             const cancels = [
                 document.getElementById('cancelOptions'),
@@ -466,10 +518,10 @@
             };
             cancels.forEach(cancel => cancel === null || cancel === void 0 ? void 0 : cancel.addEventListener('click', cancelF));
         }, 2000);
-        if (settings.isBlocked && settings.blacklist.length > 0) {
+        if (settings.isBlocked && settings.blacklist.size > 0) {
             const comments = document.querySelectorAll('span.escaped, dl.thread dd');
             comments.forEach(comment => {
-                if (settings.blacklist.some(word => comment.innerText.includes(word))) {
+                if (Array.from(settings.blacklist).some(word => comment.innerText.includes(word))) {
                     comment.style.display = 'none';
                 }
             });
@@ -511,6 +563,53 @@
                 const img = appendImageAfter(url);
                 modal.imgs.map.set(img, modal.imgs.array.length);
                 modal.imgs.array.push(img);
+                if (settings.isSB) {
+                    img.crossOrigin = 'Anonymous';
+                    const space = document.createTextNode('\xa0\xa0');
+                    const blockImage = document.createElement('a');
+                    blockImage.innerText = 'ブロック';
+                    blockImage.href = 'javascript:void(0)';
+                    blockImage.addEventListener('click', () => {
+                        var _a;
+                        url.parentElement.style.display = 'none';
+                        if (img.src === '') {
+                            img.src = (_a = img.dataset.src) !== null && _a !== void 0 ? _a : '';
+                            imgObserver.unobserve(img);
+                        }
+                        if (img.complete) {
+                            getHash(img, (err, hash) => {
+                                if (err) {
+                                    return;
+                                }
+                                settings.sblist.add(hash);
+                                settings.save();
+                            });
+                        }
+                        else {
+                            img.addEventListener('load', () => {
+                                getHash(img, (err, hash) => {
+                                    if (err) {
+                                        return;
+                                    }
+                                    settings.sblist.add(hash);
+                                    settings.save();
+                                });
+                            });
+                        }
+                    });
+                    insertAfter(url, space);
+                    insertAfter(space, blockImage);
+                    img.addEventListener('load', () => {
+                        getHash(img, (err, hash) => {
+                            if (err) {
+                                return;
+                            }
+                            if (settings.sblist.has(hash)) {
+                                url.parentElement.style.display = 'none';
+                            }
+                        });
+                    });
+                }
             }
         });
     });

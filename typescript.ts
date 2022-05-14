@@ -63,6 +63,23 @@
         return url
     }
 
+    function getHash(img: HTMLImageElement, callback: (err: string, hash: string) => void) {
+        const canvas = document.createElement('canvas')
+        const context = canvas.getContext('2d')
+        canvas.width = img.naturalWidth
+        canvas.height = img.naturalHeight
+        context!.drawImage(img, 0, 0)
+        canvas.toBlob(blob => {
+            (function retry(count=0) {
+                if (BlockHash && BlockHash.blockhash) {
+                    BlockHash.blockhash(blob, 16, 2, callback)
+                } else {
+                    setTimeout(retry, 5000, count + 1)
+                }
+            })()
+        }, 'image/jpeg', 80)
+    }
+
     interface MenuOptionInit {
         text?: string
         checked?: boolean
@@ -139,7 +156,7 @@
         onconfirm: () => void
         oncancel: () => void
 
-        constructor(openButton: HTMLButtonElement, list: string[], onconfirm: () => void, oncancel: () => void) {
+        constructor(openButton: HTMLButtonElement, set: Set<string>, onconfirm: () => void, oncancel: () => void) {
             this.container = document.createElement('div')
             this.container.style.display = 'none'
             this.container.style.position = 'fixed'
@@ -173,7 +190,7 @@
             this.textarea.style.width = '100%'
             this.textarea.style.height = '100%'
             this.textarea.style.resize = 'none'
-            this.textarea.value = list.join('\n')
+            this.textarea.value = Array.from(set).join('\n')
             this.dialog.appendChild(this.textarea)
             this.onconfirm = onconfirm
             this.oncancel = oncancel
@@ -187,10 +204,24 @@
             isEmbedded: true,
             isBlocked: true,
             isSB: true,
-            blacklist: [] as string[],
-            sblist: [] as string[]
+            blacklist: new Set<string>(),
+            sblist: new Set<string>(),
+            save: () => {
+                const gmSettings: any = {}
+                Object.assign(gmSettings, defaultSettings)
+                gmSettings.blacklist = Array.from(gmSettings.blacklist)
+                gmSettings.sblist = Array.from(gmSettings.sblist)
+                GM_setValue('5ch Enhancer', gmSettings)
+            }
         }
-        return Object.assign(defaultSettings, GM_getValue('5ch Enhancer'))
+        const gmSettings = GM_getValue('5ch Enhancer')
+        if (Array.isArray((gmSettings as any).blacklist)) {
+            (gmSettings as any).blacklist = new Set<string>((gmSettings as any).blacklist)
+        }
+        if (Array.isArray((gmSettings as any).sblist)) {
+            (gmSettings as any).sblist = new Set<string>((gmSettings as any).sblist)
+        }
+        return Object.assign(defaultSettings, gmSettings)
     })()
 
     const twttr = (() => {
@@ -210,6 +241,24 @@
             return t
         }(unsafeWindow.document, "script", "twitter-wjs"))
         return unsafeWindow.twttr
+    })();
+
+    (() => {
+        if (!settings.isSB) { return }
+        unsafeWindow.BlockHash = ((d, id) => {
+            const t = unsafeWindow.BlockHash || {}
+            if (d.getElementById(id)) { return t }
+            const fjs = d.getElementsByTagName('script')[0]
+            const js = d.createElement('script')
+            js.id = id
+            js.src = 'https://cdn.jsdelivr.net/gh/amgrhrk/5ch-Enhancer/blockhash.js'
+            fjs.parentNode.insertBefore(js, fjs)
+            t._e = [];
+            t.ready = function (f: any) {
+                t._e.push(f)
+            }
+            return t
+        })(unsafeWindow.document, 'blockhash');
     })()
 
     const observer: MutationObserver = new MutationObserver(mutations => {
@@ -439,11 +488,11 @@
             const blockOptionPopupWindow = new PopupWindow(
                 blockOption.button, settings.blacklist,
                 () => {
-                    settings.blacklist = blockOptionPopupWindow.textarea.value.split('\n').filter(word => word.length > 0)
-                    blockOptionPopupWindow.textarea.value = settings.blacklist.join('\n')
+                    settings.blacklist = new Set(blockOptionPopupWindow.textarea.value.split('\n').filter(word => word.length > 0))
+                    blockOptionPopupWindow.textarea.value = Array.from(settings.blacklist).join('\n')
                 },
                 () => {
-                    blockOptionPopupWindow.textarea.value = settings.blacklist.join('\n')
+                    blockOptionPopupWindow.textarea.value = Array.from(settings.blacklist).join('\n')
                 }
             )
             const sbiPhoneOption = new MenuOptionWithButton({
@@ -464,11 +513,11 @@
             const sbiPhoneOptionPopupWindow = new PopupWindow(
                 sbiPhoneOption.button, settings.sblist,
                 () => {
-                    settings.sblist = sbiPhoneOptionPopupWindow.textarea.value.split('\n').filter(word => word.length > 0)
-                    sbiPhoneOptionPopupWindow.textarea.value = settings.sblist.join('\n')
+                    settings.sblist = new Set(sbiPhoneOptionPopupWindow.textarea.value.split('\n').filter(word => word.length > 0))
+                    sbiPhoneOptionPopupWindow.textarea.value = Array.from(settings.sblist).join('\n')
                 },
                 () => {
-                    sbiPhoneOptionPopupWindow.textarea.value = settings.sblist.join('\n')
+                    sbiPhoneOptionPopupWindow.textarea.value = Array.from(settings.sblist).join('\n')
                 }
             )
             MenuOption.insert(thumbnailOption, dragOption, embedOption, blockOption, sbiPhoneOption)
@@ -483,7 +532,7 @@
                 blockOptionPopupWindow.onconfirm()
                 sbiPhoneOption.onconfirm()
                 sbiPhoneOptionPopupWindow.onconfirm()
-                GM_setValue('5ch Enhancer', settings)
+                settings.save()
             })
             const cancels = [
                 document.getElementById('cancelOptions'),
@@ -502,10 +551,10 @@
             cancels.forEach(cancel => cancel?.addEventListener('click', cancelF))
         }, 2000)
 
-        if (settings.isBlocked && settings.blacklist.length > 0) {
+        if (settings.isBlocked && settings.blacklist.size > 0) {
             const comments = document.querySelectorAll<HTMLSpanElement>('span.escaped, dl.thread dd')
             comments.forEach(comment => {
-                if (settings.blacklist.some(word => comment.innerText.includes(word))) {
+                if (Array.from(settings.blacklist).some(word => comment.innerText.includes(word))) {
                     comment.style.display = 'none'
                 }
             })
@@ -542,6 +591,45 @@
                 const img = appendImageAfter(url)
                 modal.imgs.map.set(img, modal.imgs.array.length)
                 modal.imgs.array.push(img)
+                if (settings.isSB) {
+                    img.crossOrigin = 'Anonymous'
+                    const space = document.createTextNode('\xa0\xa0')
+                    const blockImage = document.createElement('a')
+                    blockImage.innerText = 'ブロック'
+                    blockImage.href = 'javascript:void(0)'
+                    blockImage.addEventListener('click', () => {
+                        url.parentElement!.style.display = 'none'
+                        if (img.src === '') {
+                            img.src = img.dataset.src ?? ''
+                            imgObserver.unobserve(img)
+                        }
+                        if (img.complete) {
+                            getHash(img, (err, hash) => {
+                                if (err) { return }
+                                settings.sblist.add(hash)
+                                settings.save()
+                            })
+                        } else {
+                            img.addEventListener('load', () => {
+                                getHash(img, (err, hash) => {
+                                    if (err) { return }
+                                    settings.sblist.add(hash)
+                                    settings.save()
+                                })
+                            })
+                        }
+                    })
+                    insertAfter(url, space)
+                    insertAfter(space, blockImage)
+                    img.addEventListener('load', () => {
+                        getHash(img, (err, hash) => {
+                            if (err) { return }
+                            if (settings.sblist.has(hash)) {
+                                url.parentElement!.style.display = 'none'
+                            }
+                        })
+                    })
+                }
             }
         })
     })
