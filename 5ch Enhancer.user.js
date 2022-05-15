@@ -595,7 +595,7 @@
             }
             get name() {
                 var _a, _b;
-                if (this.type == POST_TYPE.OLD) {
+                if (this.type === POST_TYPE.OLD) {
                     return (_a = this.container.elements[0].firstElementChild) === null || _a === void 0 ? void 0 : _a.childNodes[1].textContent;
                 }
                 return (_b = this.container.elements[0].firstElementChild) === null || _b === void 0 ? void 0 : _b.children[1].childNodes[1].textContent;
@@ -686,7 +686,7 @@
                     const img = appendImageAfter(url);
                     modal.imgs.map.set(img, modal.imgs.array.length);
                     modal.imgs.array.push(img);
-                    if (settings.isSB && img.dataset.src.match(/^https?:\/\/(i\.)?imgur/)) {
+                    if (settings.isSB && img.dataset.src.match(/^https?:\/\/(i\.)?imgur/) && img.dataset.src.endsWith("jpg")) {
                         const space = document.createTextNode('\xa0\xa0');
                         const blockImage = document.createElement('a');
                         blockImage.innerText = 'ブロック';
