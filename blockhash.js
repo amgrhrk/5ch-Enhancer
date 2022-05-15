@@ -158,20 +158,18 @@ BlockHash.blockhashData = function(imgData, bits, method) {
     }
     return hash;
 };
-BlockHash.blockhash = function (blob, bits, method, callback) {
+BlockHash.blockhash = function (arrayBuffer, bits, method, callback) {
     var imgData, hash;
-    blob.arrayBuffer().then(data => {
-      try {
-        imgData = window['jpeg-js'].decode(data, {useTArray: true});
-        if (!imgData) {
-            throw new Error("Couldn't decode image");
-        }
-        hash = BlockHash.blockhashData(imgData, bits, method);
-        callback(null, hash);
-      } catch (err) {
-        callback(err, null);
+    try {
+      imgData = window['jpeg-js'].decode(arrayBuffer, {useTArray: true});
+      if (!imgData) {
+        throw new Error("Couldn't decode image");
       }
-    });
+      hash = BlockHash.blockhashData(imgData, bits, method);
+      callback(null, hash);
+    } catch (err) {
+      callback(err, null);
+    }
 };
 var JpegImage = (function jpegImage() {
     "use strict";

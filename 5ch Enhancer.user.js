@@ -20,6 +20,7 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @connect      twitter.com
+// @connect      imgur.com
 // ==/UserScript==
 
 (function () {
@@ -58,16 +59,11 @@
         return url;
     }
     function getHash(img) {
-        return new Promise((resolve, reject) => {
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
-            context.drawImage(img, 0, 0);
-            canvas.toBlob(blob => {
+        if (img instanceof ArrayBuffer) {
+            return new Promise((resolve, reject) => {
                 (function retry(count = 0) {
                     if (BlockHash && BlockHash.blockhash) {
-                        BlockHash.blockhash(blob, 16, 2, (err, hash) => {
+                        BlockHash.blockhash(img, 16, 2, (err, hash) => {
                             if (err) {
                                 reject(err);
                             }
@@ -78,6 +74,30 @@
                         setTimeout(retry, 5000, count + 1);
                     }
                 })();
+            });
+        }
+        return new Promise((resolve, reject) => {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            context.drawImage(img, 0, 0);
+            canvas.toBlob(blob => {
+                blob.arrayBuffer().then(data => {
+                    (function retry(count = 0) {
+                        if (BlockHash && BlockHash.blockhash) {
+                            BlockHash.blockhash(data, 16, 2, (err, hash) => {
+                                if (err) {
+                                    reject(err);
+                                }
+                                resolve(hash);
+                            });
+                        }
+                        else {
+                            setTimeout(retry, 5000, count + 1);
+                        }
+                    })();
+                });
             }, 'image/jpeg', 100);
         });
     }
@@ -616,6 +636,16 @@
             });
             return oldPosts;
         })();
+        const fetchImage = (src, then) => {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url: src,
+                responseType: 'arraybuffer',
+                onload: (response) => {
+                    getHash(response.response).then(then);
+                }
+            });
+        };
         posts.forEach(post => {
             if (settings.isSB && post.name === '(SB-iPhone)' && !settings.isVisible) {
                 post.container.hide();
@@ -656,8 +686,7 @@
                     const img = appendImageAfter(url);
                     modal.imgs.map.set(img, modal.imgs.array.length);
                     modal.imgs.array.push(img);
-                    if (settings.isSB && (img.dataset.src.startsWith('https://i.i'))) {
-                        img.crossOrigin = 'Anonymous';
+                    if (settings.isSB && img.dataset.src.match(/^https?:\/\/(i\.)?imgur/)) {
                         const space = document.createTextNode('\xa0\xa0');
                         const blockImage = document.createElement('a');
                         blockImage.innerText = 'ブロック';
@@ -669,14 +698,14 @@
                                 imgObserver.unobserve(img);
                             }
                             if (img.complete) {
-                                getHash(img).then(hash => {
+                                fetchImage(img.dataset.src, (hash) => {
                                     settings.sblist.add(hash);
                                     settings.save();
                                 });
                             }
                             else {
                                 img.addEventListener('load', () => {
-                                    getHash(img).then(hash => {
+                                    fetchImage(img.dataset.src, (hash) => {
                                         settings.sblist.add(hash);
                                         settings.save();
                                     });
@@ -689,7 +718,7 @@
                             if (post.container.isHidden) {
                                 return;
                             }
-                            getHash(img).then(hash => {
+                            fetchImage(img.dataset.src, (hash) => {
                                 if (settings.sblist.has(hash)) {
                                     post.container.hide();
                                 }
