@@ -28,6 +28,9 @@
     function GM_xmlhttpRequest(object: object) { }
     function GM_setValue(string: string, object: object) { }
     function GM_getValue(string: string, object?: object) { }
+    const BlockHash = {
+        blockhash: (img: ArrayBuffer, bit: number, type: number, callback: (err: any, hash: string) => void) => { }
+    }
     let unsafeWindow: any
 
     function insertAfter(first: Node, after: Node) {
@@ -99,7 +102,7 @@
                             setTimeout(retry, 5000, count + 1)
                         }
                     })()
-                });
+                })
             }, 'image/jpeg', 100)
         })
     }
@@ -169,7 +172,7 @@
             this.button.innerText = '設定'
             this.button.classList.add('btn')
             this.button.style.marginLeft = '4px'
-            this.div.appendChild(this.button);
+            this.div.appendChild(this.button)
         }
     }
 
@@ -277,12 +280,12 @@
             js.id = id
             js.src = 'https://cdn.jsdelivr.net/gh/amgrhrk/5ch-Enhancer/blockhash.js'
             fjs.parentNode.insertBefore(js, fjs)
-            t._e = [];
+            t._e = []
             t.ready = function (f: any) {
                 t._e.push(f)
             }
             return t
-        })(unsafeWindow.document, 'blockhash');
+        })(unsafeWindow.document, 'blockhash')
     })()
 
     const observer: MutationObserver = new MutationObserver(mutations => {
@@ -515,7 +518,7 @@
                     blockOption.checkbox.checked = settings.isBlocked
                     MenuOption.toggleDisable.call(blockOption.checkbox as any)
                 }
-            });
+            })
             blockOption.button.disabled = !settings.isBlocked;
             (blockOption.checkbox as any).disables = [];
             (blockOption.checkbox as any).disables.push(blockOption.button)
@@ -540,7 +543,7 @@
                     sbiPhoneOption.checkbox.checked = settings.isSB
                     MenuOption.toggleDisable.call(sbiPhoneOption.checkbox as any)
                 }
-            });
+            })
             sbiPhoneOption.button.disabled = !settings.isSB;
             (sbiPhoneOption.checkbox as any).disables = [];
             (sbiPhoneOption.checkbox as any).disables.push(sbiPhoneOption.button)
@@ -605,33 +608,6 @@
             })
         }
 
-        enum POST_TYPE { OLD, NEW }
-        class Post {
-            container: FakeDiv
-            urls: HTMLAnchorElement[]
-            type: POST_TYPE
-
-            constructor(container: FakeDiv, urls: HTMLAnchorElement[], type: POST_TYPE) {
-                this.container = container
-                this.urls = urls
-                this.type = type
-            }
-
-            get id() {
-                if (this.type === POST_TYPE.OLD) {
-                    return this.container.elements[0].lastChild?.textContent
-                }
-                return this.container.elements[0].firstElementChild?.lastElementChild?.textContent
-            }
-
-            get name() {
-                if (this.type === POST_TYPE.OLD) {
-                    return this.container.elements[0].firstElementChild?.childNodes[1].textContent
-                }
-                return this.container.elements[0].firstElementChild?.children[1].childNodes[1].textContent
-            }
-        }
-
         class FakeDiv {
             private displays: string[]
             elements: HTMLElement[]
@@ -659,25 +635,67 @@
             }
         }
 
+        interface Post {
+            container: FakeDiv
+            urls: HTMLAnchorElement[]
+            get id(): string
+            get isp(): string
+        }
+        class NewPost implements Post {
+            container: FakeDiv
+            urls: HTMLAnchorElement[]
+
+            constructor(container: FakeDiv, urls: HTMLAnchorElement[]) {
+                this.container = container
+                this.urls = urls
+            }
+
+            get id() {
+                return this.container.elements[0].firstElementChild?.lastElementChild?.textContent ?? ''
+            }
+
+            get isp() {
+                return this.container.elements[0].firstElementChild?.children[1].childNodes[1].textContent ?? ''
+            }
+        }
+        class OldPost implements Post {
+            container: FakeDiv
+            urls: HTMLAnchorElement[]
+
+            constructor(container: FakeDiv, urls: HTMLAnchorElement[]) {
+                this.container = container
+                this.urls = urls
+            }
+
+            get id() {
+                return this.container.elements[0].lastChild?.textContent ?? ''
+            }
+
+            get isp() {
+                return this.container.elements[0].firstElementChild?.childNodes[1].textContent ?? ''
+            }
+        }
+
         const posts: Post[] = (() => {
             const newPostDivs = Array.from(document.querySelectorAll<HTMLDivElement>('div.post'))
             if (newPostDivs.length !== 0) {
-                const newPosts: Post[] = newPostDivs.map(newPostDiv => new Post(
-                    new FakeDiv(newPostDiv),
-                    Array.from(newPostDiv.querySelectorAll<HTMLAnchorElement>('span.escaped a')),
-                    POST_TYPE.NEW
-                ))
+                const newPosts: Post[] = newPostDivs.map(newPostDiv => {
+                    const br = newPostDiv.nextElementSibling as HTMLElement
+                    return new NewPost(
+                        new FakeDiv(newPostDiv, br),
+                        Array.from(newPostDiv.querySelectorAll<HTMLAnchorElement>('span.escaped a'))
+                    )
+                })
                 return newPosts
             }
             const oldPostTitles = Array.from(document.querySelectorAll<HTMLElement>('dl.thread > dt'))
             const oldPosts: Post[] = oldPostTitles
                 .filter(oldPostTitles => oldPostTitles.nextElementSibling !== null)
                 .map(oldPostTitle => {
-                    const oldPost = oldPostTitle.nextElementSibling as HTMLElement
-                    return new Post(
-                        new FakeDiv(oldPostTitle, oldPost),
-                        Array.from(oldPost.querySelectorAll('a')),
-                        POST_TYPE.OLD
+                    const oldPostContent = oldPostTitle.nextElementSibling as HTMLElement
+                    return new OldPost(
+                        new FakeDiv(oldPostTitle, oldPostContent),
+                        Array.from(oldPostContent.querySelectorAll('a'))
                     )
                 })
             return oldPosts
@@ -694,7 +712,7 @@
             })
         }
         posts.forEach(post => {
-            if (settings.isSB && post.name === '(SB-iPhone)' && !settings.isVisible) {
+            if (settings.isSB && post.isp === '(SB-iPhone)' && !settings.isVisible) {
                 post.container.hide()
             }
             post.urls.forEach(url => {

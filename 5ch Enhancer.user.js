@@ -575,32 +575,6 @@
                 }
             });
         }
-        let POST_TYPE;
-        (function (POST_TYPE) {
-            POST_TYPE[POST_TYPE["OLD"] = 0] = "OLD";
-            POST_TYPE[POST_TYPE["NEW"] = 1] = "NEW";
-        })(POST_TYPE || (POST_TYPE = {}));
-        class Post {
-            constructor(container, urls, type) {
-                this.container = container;
-                this.urls = urls;
-                this.type = type;
-            }
-            get id() {
-                var _a, _b, _c;
-                if (this.type === POST_TYPE.OLD) {
-                    return (_a = this.container.elements[0].lastChild) === null || _a === void 0 ? void 0 : _a.textContent;
-                }
-                return (_c = (_b = this.container.elements[0].firstElementChild) === null || _b === void 0 ? void 0 : _b.lastElementChild) === null || _c === void 0 ? void 0 : _c.textContent;
-            }
-            get name() {
-                var _a, _b;
-                if (this.type === POST_TYPE.OLD) {
-                    return (_a = this.container.elements[0].firstElementChild) === null || _a === void 0 ? void 0 : _a.childNodes[1].textContent;
-                }
-                return (_b = this.container.elements[0].firstElementChild) === null || _b === void 0 ? void 0 : _b.children[1].childNodes[1].textContent;
-            }
-        }
         class FakeDiv {
             constructor(...elements) {
                 this.elements = elements;
@@ -621,18 +595,49 @@
                 }
             }
         }
+        class NewPost {
+            constructor(container, urls) {
+                this.container = container;
+                this.urls = urls;
+            }
+            get id() {
+                var _a, _b, _c;
+                return (_c = (_b = (_a = this.container.elements[0].firstElementChild) === null || _a === void 0 ? void 0 : _a.lastElementChild) === null || _b === void 0 ? void 0 : _b.textContent) !== null && _c !== void 0 ? _c : '';
+            }
+            get isp() {
+                var _a, _b;
+                return (_b = (_a = this.container.elements[0].firstElementChild) === null || _a === void 0 ? void 0 : _a.children[1].childNodes[1].textContent) !== null && _b !== void 0 ? _b : '';
+            }
+        }
+        class OldPost {
+            constructor(container, urls) {
+                this.container = container;
+                this.urls = urls;
+            }
+            get id() {
+                var _a, _b;
+                return (_b = (_a = this.container.elements[0].lastChild) === null || _a === void 0 ? void 0 : _a.textContent) !== null && _b !== void 0 ? _b : '';
+            }
+            get isp() {
+                var _a, _b;
+                return (_b = (_a = this.container.elements[0].firstElementChild) === null || _a === void 0 ? void 0 : _a.childNodes[1].textContent) !== null && _b !== void 0 ? _b : '';
+            }
+        }
         const posts = (() => {
             const newPostDivs = Array.from(document.querySelectorAll('div.post'));
             if (newPostDivs.length !== 0) {
-                const newPosts = newPostDivs.map(newPostDiv => new Post(new FakeDiv(newPostDiv), Array.from(newPostDiv.querySelectorAll('span.escaped a')), POST_TYPE.NEW));
+                const newPosts = newPostDivs.map(newPostDiv => {
+                    const br = newPostDiv.nextElementSibling;
+                    return new NewPost(new FakeDiv(newPostDiv, br), Array.from(newPostDiv.querySelectorAll('span.escaped a')));
+                });
                 return newPosts;
             }
             const oldPostTitles = Array.from(document.querySelectorAll('dl.thread > dt'));
             const oldPosts = oldPostTitles
                 .filter(oldPostTitles => oldPostTitles.nextElementSibling !== null)
                 .map(oldPostTitle => {
-                const oldPost = oldPostTitle.nextElementSibling;
-                return new Post(new FakeDiv(oldPostTitle, oldPost), Array.from(oldPost.querySelectorAll('a')), POST_TYPE.OLD);
+                const oldPostContent = oldPostTitle.nextElementSibling;
+                return new OldPost(new FakeDiv(oldPostTitle, oldPostContent), Array.from(oldPostContent.querySelectorAll('a')));
             });
             return oldPosts;
         })();
@@ -647,7 +652,7 @@
             });
         };
         posts.forEach(post => {
-            if (settings.isSB && post.name === '(SB-iPhone)' && !settings.isVisible) {
+            if (settings.isSB && post.isp === '(SB-iPhone)' && !settings.isVisible) {
                 post.container.hide();
             }
             post.urls.forEach(url => {
@@ -686,7 +691,7 @@
                     const img = appendImageAfter(url);
                     modal.imgs.map.set(img, modal.imgs.array.length);
                     modal.imgs.array.push(img);
-                    if (settings.isSB && img.dataset.src.match(/^https?:\/\/(i\.)?imgur/) && img.dataset.src.endsWith("jpg")) {
+                    if (settings.isSB && img.dataset.src.match(/^https?:\/\/(i\.)?imgur/) && img.dataset.src.endsWith('jpg')) {
                         const space = document.createTextNode('\xa0\xa0');
                         const blockImage = document.createElement('a');
                         blockImage.innerText = 'ブロック';
