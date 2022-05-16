@@ -651,11 +651,13 @@
             }
 
             get id() {
-                return this.container.elements[0].firstElementChild?.lastElementChild?.textContent ?? ''
+                return this.container.elements[0].firstElementChild!.lastElementChild!.textContent!
             }
 
             get isp() {
-                return this.container.elements[0].firstElementChild?.children[1].childNodes[1].textContent ?? ''
+                const childNodes = this.container.elements[0].firstElementChild!.children[1].childNodes
+                if (!childNodes[1]) { return '' }
+                return childNodes[1].textContent!
             }
         }
         class OldPost implements Post {
@@ -668,11 +670,13 @@
             }
 
             get id() {
-                return this.container.elements[0].lastChild?.textContent ?? ''
+                return this.container.elements[0].lastChild!.textContent!
             }
 
             get isp() {
-                return this.container.elements[0].firstElementChild?.childNodes[1].textContent ?? ''
+                const childNodes = this.container.elements[0].firstElementChild!.childNodes
+                if (!childNodes[1]) { return '' }
+                return childNodes[1].textContent!
             }
         }
 

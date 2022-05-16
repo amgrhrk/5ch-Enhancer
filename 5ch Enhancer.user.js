@@ -601,12 +601,14 @@
                 this.urls = urls;
             }
             get id() {
-                var _a, _b, _c;
-                return (_c = (_b = (_a = this.container.elements[0].firstElementChild) === null || _a === void 0 ? void 0 : _a.lastElementChild) === null || _b === void 0 ? void 0 : _b.textContent) !== null && _c !== void 0 ? _c : '';
+                return this.container.elements[0].firstElementChild.lastElementChild.textContent;
             }
             get isp() {
-                var _a, _b;
-                return (_b = (_a = this.container.elements[0].firstElementChild) === null || _a === void 0 ? void 0 : _a.children[1].childNodes[1].textContent) !== null && _b !== void 0 ? _b : '';
+                const childNodes = this.container.elements[0].firstElementChild.children[1].childNodes;
+                if (!childNodes[1]) {
+                    return '';
+                }
+                return childNodes[1].textContent;
             }
         }
         class OldPost {
@@ -615,12 +617,14 @@
                 this.urls = urls;
             }
             get id() {
-                var _a, _b;
-                return (_b = (_a = this.container.elements[0].lastChild) === null || _a === void 0 ? void 0 : _a.textContent) !== null && _b !== void 0 ? _b : '';
+                return this.container.elements[0].lastChild.textContent;
             }
             get isp() {
-                var _a, _b;
-                return (_b = (_a = this.container.elements[0].firstElementChild) === null || _a === void 0 ? void 0 : _a.childNodes[1].textContent) !== null && _b !== void 0 ? _b : '';
+                const childNodes = this.container.elements[0].firstElementChild.childNodes;
+                if (!childNodes[1]) {
+                    return '';
+                }
+                return childNodes[1].textContent;
             }
         }
         const posts = (() => {
