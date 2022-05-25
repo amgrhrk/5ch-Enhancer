@@ -320,7 +320,7 @@
                 imgObserver.unobserve(entry.target)
             }
         })
-    })
+    }, { rootMargin: '20%' })
 
     document.addEventListener('DOMContentLoaded', () => {
         observer.disconnect()
@@ -638,6 +638,7 @@
         interface Post {
             container: FakeDiv
             urls: HTMLAnchorElement[]
+            get name(): string
             get id(): string
             get isp(): string
         }
@@ -650,14 +651,22 @@
                 this.urls = urls
             }
 
-            get id() {
-                return this.container.elements[0].firstElementChild!.lastElementChild!.textContent!
+            get name() {
+                const fullNameNode = this.container.elements[0].firstElementChild!.children[1]
+                const nameNode = fullNameNode.childNodes[0]
+                if (!nameNode) { return '' }
+                return nameNode.textContent!
             }
 
             get isp() {
-                const childNodes = this.container.elements[0].firstElementChild!.children[1].childNodes
-                if (!childNodes[1]) { return '' }
-                return childNodes[1].textContent!
+                const fullNameNode = this.container.elements[0].firstElementChild!.children[1]
+                const ispNode = fullNameNode.childNodes[1]
+                if (!ispNode) { return '' }
+                return ispNode.childNodes[ispNode.childNodes.length - 2].textContent!
+            }
+
+            get id() {
+                return this.container.elements[0].firstElementChild!.lastElementChild!.textContent!
             }
         }
         class OldPost implements Post {
@@ -669,14 +678,18 @@
                 this.urls = urls
             }
 
-            get id() {
-                return this.container.elements[0].lastChild!.textContent!
+            get name() {
+                return ''
             }
 
             get isp() {
                 const childNodes = this.container.elements[0].firstElementChild!.childNodes
                 if (!childNodes[1]) { return '' }
                 return childNodes[1].textContent!
+            }
+
+            get id() {
+                return this.container.elements[0].lastChild!.textContent!
             }
         }
 
@@ -716,13 +729,16 @@
             })
         }
         posts.forEach(post => {
-            if (settings.isSB && post.isp === '(SB-iPhone)' && !settings.isVisible) {
+            if (settings.isSB && !settings.isVisible && post.isp === '(SB-iPhone)') {
                 post.container.hide()
             }
             post.urls.forEach(url => {
                 const matchResult = url.href.match(/^.+?\/\?./)
                 if (matchResult) {
                     url.href = url.innerText
+                }
+                if (settings.isSB && post.name === 'Quality of Perfect ') {
+                    post.container.hide()
                 }
                 if (settings.isEmbedded && url.innerText.match(/twitter\.com\/.+?\/status\/./)) {
                     GM_xmlhttpRequest({
