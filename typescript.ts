@@ -460,7 +460,7 @@
             return img
         }
 
-        enum MenuState { CREATED, NOT_CREATED, NOT_APPLICABLE }
+        const enum MenuState { CREATED, NOT_CREATED, NOT_APPLICABLE }
         let menuState = MenuState.NOT_CREATED
         const createMenu = () => {
             if (!window.location.pathname.includes('read.cgi')) {
@@ -732,13 +732,13 @@
             if (settings.isSB && !settings.isVisible && post.isp === '(SB-iPhone)') {
                 post.container.hide()
             }
+            if (settings.isSB && post.name === 'Quality of Perfect ') {
+                post.container.hide()
+            }
             post.urls.forEach(url => {
                 const matchResult = url.href.match(/^.+?\/\?./)
                 if (matchResult) {
                     url.href = url.innerText
-                }
-                if (settings.isSB && post.name === 'Quality of Perfect ') {
-                    post.container.hide()
                 }
                 if (settings.isEmbedded && url.innerText.match(/twitter\.com\/.+?\/status\/./)) {
                     GM_xmlhttpRequest({

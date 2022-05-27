@@ -433,23 +433,17 @@
             insertAfter(element, fragment);
             return img;
         };
-        let MenuState;
-        (function (MenuState) {
-            MenuState[MenuState["CREATED"] = 0] = "CREATED";
-            MenuState[MenuState["NOT_CREATED"] = 1] = "NOT_CREATED";
-            MenuState[MenuState["NOT_APPLICABLE"] = 2] = "NOT_APPLICABLE";
-        })(MenuState || (MenuState = {}));
-        let menuState = MenuState.NOT_CREATED;
+        let menuState = 1 /* NOT_CREATED */;
         const createMenu = () => {
             if (!window.location.pathname.includes('read.cgi')) {
-                menuState = MenuState.NOT_APPLICABLE;
+                menuState = 2 /* NOT_APPLICABLE */;
                 return;
             }
             if (!MenuOption.init(document.querySelector('div.option_style_8'))) {
-                menuState = MenuState.NOT_CREATED;
+                menuState = 1 /* NOT_CREATED */;
                 return;
             }
-            menuState = MenuState.CREATED;
+            menuState = 0 /* CREATED */;
             const thumbnailOption = new MenuOption({
                 text: 'サムネイル画像を表示する',
                 checked: settings.isVisible,
@@ -671,13 +665,13 @@
             if (settings.isSB && !settings.isVisible && post.isp === '(SB-iPhone)') {
                 post.container.hide();
             }
+            if (settings.isSB && post.name === 'Quality of Perfect ') {
+                post.container.hide();
+            }
             post.urls.forEach(url => {
                 const matchResult = url.href.match(/^.+?\/\?./);
                 if (matchResult) {
                     url.href = url.innerText;
-                }
-                if (settings.isSB && post.name === 'Quality of Perfect ') {
-                    post.container.hide();
                 }
                 if (settings.isEmbedded && url.innerText.match(/twitter\.com\/.+?\/status\/./)) {
                     GM_xmlhttpRequest({
