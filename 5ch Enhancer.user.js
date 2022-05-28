@@ -288,8 +288,13 @@
     const imgObserver = new IntersectionObserver(entries => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
-                entry.target.src = entry.target.dataset.src;
-                imgObserver.unobserve(entry.target);
+                setTimeout(() => {
+                    if (!entry.isIntersecting) {
+                        return;
+                    }
+                    entry.target.src = entry.target.dataset.src;
+                    imgObserver.unobserve(entry.target);
+                }, 500);
             }
         });
     }, { rootMargin: '20%' });
@@ -643,14 +648,11 @@
                 super(container, urls);
             }
             get name() {
-                return '';
+                return this.container.elements[0].firstElementChild.firstElementChild.textContent;
             }
             get isp() {
-                const childNodes = this.container.elements[0].firstElementChild.childNodes;
-                if (!childNodes[1]) {
-                    return '';
-                }
-                return childNodes[1].textContent;
+                const ispNode = this.container.elements[0].firstElementChild.firstElementChild.nextSibling;
+                return ispNode ? ispNode.textContent : '';
             }
             get id() {
                 return this.container.elements[0].lastChild.textContent;
