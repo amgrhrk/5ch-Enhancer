@@ -73,6 +73,7 @@
         if (img instanceof ArrayBuffer) {
             return new Promise<string>((resolve, reject) => {
                 (function retry(count=0) {
+                    if (count === 3) { reject('Timeout') }
                     if (BlockHash && BlockHash.blockhash) {
                         BlockHash.blockhash(img, 16, 2, (err: any, hash: string) => {
                             if (err) { reject(err) }
@@ -93,6 +94,7 @@
             canvas.toBlob(blob => {
                 blob!.arrayBuffer().then(data => {
                     (function retry(count=0) {
+                        if (count === 3) { reject('Timeout') }
                         if (BlockHash && BlockHash.blockhash) {
                             BlockHash.blockhash(data, 16, 2, (err: any, hash: string) => {
                                 if (err) { reject(err) }
@@ -127,7 +129,7 @@
             this.div = document.createElement('div')
             this.checkbox = document.createElement('input')
             this.div.style.marginBottom = '10px'
-            this.div.innerText = init.text ?? ''
+            this.div.innerText = init.text || ''
             this.checkbox.type = 'checkbox'
             this.checkbox.checked = init.checked ?? false
             this.checkbox.classList.add('option_style_6')
@@ -635,47 +637,59 @@
             }
         }
 
-        interface Post {
+
+        abstract class Post {
             container: FakeDiv
             urls: HTMLAnchorElement[]
-            get name(): string
-            get id(): string
-            get isp(): string
-        }
-        class NewPost implements Post {
-            container: FakeDiv
-            urls: HTMLAnchorElement[]
+            abstract get name(): string
+            abstract get id(): string
+            abstract get isp(): string
 
             constructor(container: FakeDiv, urls: HTMLAnchorElement[]) {
                 this.container = container
                 this.urls = urls
             }
 
+            static getMostFrequentName(posts: Post[]) {
+                const nameToCount = new Map<string, number>()
+                let mostFrequentName = ''
+                for (let i = 0; i < posts.length; i++) {
+                    const name = posts[i].name
+                    nameToCount.set(name, (nameToCount.get(name) || 0) + 1)
+                    if (nameToCount.get(name)! > (nameToCount.get(mostFrequentName) || 0)) {
+                        mostFrequentName = name
+                    }
+                }
+                return mostFrequentName
+            }
+        }
+        class NewPost extends Post {
+            constructor(container: FakeDiv, urls: HTMLAnchorElement[]) {
+                super(container, urls)
+            }
+
             get name() {
                 const fullNameNode = this.container.elements[0].firstElementChild!.children[1]
-                const nameNode = fullNameNode.childNodes[0]
+                const nameNode = fullNameNode.firstElementChild
                 if (!nameNode) { return '' }
                 return nameNode.textContent!
             }
 
             get isp() {
                 const fullNameNode = this.container.elements[0].firstElementChild!.children[1]
-                const ispNode = fullNameNode.childNodes[1]
-                if (!ispNode) { return '' }
-                return ispNode.childNodes[ispNode.childNodes.length - 2].textContent!
+                const nameNode = fullNameNode.firstElementChild
+                const ispNode = fullNameNode.lastElementChild!
+                if (nameNode === ispNode) { return '' }
+                return ispNode.tagName === 'A' ? ispNode.lastElementChild!.previousSibling!.textContent! : ispNode.previousSibling!.textContent!
             }
 
             get id() {
                 return this.container.elements[0].firstElementChild!.lastElementChild!.textContent!
             }
         }
-        class OldPost implements Post {
-            container: FakeDiv
-            urls: HTMLAnchorElement[]
-
+        class OldPost extends Post {
             constructor(container: FakeDiv, urls: HTMLAnchorElement[]) {
-                this.container = container
-                this.urls = urls
+                super(container, urls)
             }
 
             get name() {
@@ -718,7 +732,7 @@
             return oldPosts
         })()
 
-        const fetchImage = (src: string, then: (hash: string) => void) => {
+        const fetchAndHashImage = (src: string, then: (hash: string) => void) => {
             GM_xmlhttpRequest({
                 method: 'GET',
                 url: src,
@@ -728,11 +742,13 @@
                 }
             })
         }
+        const mostFrequentName = Post.getMostFrequentName(posts)
         posts.forEach(post => {
-            if (settings.isSB && !settings.isVisible && post.isp === '(SB-iPhone)') {
+            const isp = post.isp
+            if (settings.isSB && !settings.isVisible && isp === '(SB-iPhone)') {
                 post.container.hide()
             }
-            if (settings.isSB && post.name === 'Quality of Perfect ') {
+            if (settings.isSB && isp === '(SB-iPhone)' && post.name !== mostFrequentName) {
                 post.container.hide()
             }
             post.urls.forEach(url => {
@@ -751,8 +767,8 @@
                             if (tweet.nextElementSibling && tweet.nextElementSibling.tagName === 'BR') {
                                 tweet.nextElementSibling.remove()
                             }
-                            (function retry(count = 0) {
-                                if (count == 3) { return }
+                            (function retry(count=0) {
+                                if (count === 3) { return }
                                 if (twttr.widgets && twttr.widgets.load) {
                                     twttr.widgets.load(tweet)
                                 } else {
@@ -778,13 +794,13 @@
                                 imgObserver.unobserve(img)
                             }
                             if (img.complete) {
-                                fetchImage(img.dataset.src!, (hash) => {
+                                fetchAndHashImage(img.dataset.src!, (hash) => {
                                     settings.sblist.add(hash)
                                     settings.save()
                                 })
                             } else {
                                 img.addEventListener('load', () => {
-                                    fetchImage(img.dataset.src!, (hash) => {
+                                    fetchAndHashImage(img.dataset.src!, (hash) => {
                                         settings.sblist.add(hash)
                                         settings.save()
                                     })
@@ -793,14 +809,25 @@
                         })
                         insertAfter(url, space)
                         insertAfter(space, blockImage)
-                        img.addEventListener('load', () => {
-                            if (post.container.isHidden) { return }
-                            fetchImage(img.dataset.src!, (hash) => {
-                                if (settings.sblist.has(hash)) {
-                                    post.container.hide()
-                                }
+                        if (!post.container.isHidden && isp === '(SB-iPhone)') {
+                            post.container.hide()
+                            img.addEventListener('load', () => {
+                                fetchAndHashImage(img.dataset.src!, (hash) => {
+                                    if (!settings.sblist.has(hash)) {
+                                        post.container.show()
+                                    }
+                                })
                             })
-                        })
+                        } else {
+                            img.addEventListener('load', () => {
+                                if (post.container.isHidden) { return }
+                                fetchAndHashImage(img.dataset.src!, (hash) => {
+                                    if (settings.sblist.has(hash)) {
+                                        post.container.hide()
+                                    }
+                                })
+                            })
+                        }
                     }
                 }
             })

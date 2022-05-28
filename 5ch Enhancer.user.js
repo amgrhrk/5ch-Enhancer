@@ -62,6 +62,9 @@
         if (img instanceof ArrayBuffer) {
             return new Promise((resolve, reject) => {
                 (function retry(count = 0) {
+                    if (count === 3) {
+                        reject('Timeout');
+                    }
                     if (BlockHash && BlockHash.blockhash) {
                         BlockHash.blockhash(img, 16, 2, (err, hash) => {
                             if (err) {
@@ -85,6 +88,9 @@
             canvas.toBlob(blob => {
                 blob.arrayBuffer().then(data => {
                     (function retry(count = 0) {
+                        if (count === 3) {
+                            reject('Timeout');
+                        }
                         if (BlockHash && BlockHash.blockhash) {
                             BlockHash.blockhash(data, 16, 2, (err, hash) => {
                                 if (err) {
@@ -103,13 +109,13 @@
     }
     class MenuOption {
         constructor(init) {
-            var _a, _b;
+            var _a;
             this.div = document.createElement('div');
             this.checkbox = document.createElement('input');
             this.div.style.marginBottom = '10px';
-            this.div.innerText = (_a = init.text) !== null && _a !== void 0 ? _a : '';
+            this.div.innerText = init.text || '';
             this.checkbox.type = 'checkbox';
-            this.checkbox.checked = (_b = init.checked) !== null && _b !== void 0 ? _b : false;
+            this.checkbox.checked = (_a = init.checked) !== null && _a !== void 0 ? _a : false;
             this.checkbox.classList.add('option_style_6');
             if (init.onclick) {
                 this.checkbox.addEventListener('click', init.onclick);
@@ -589,14 +595,31 @@
                 }
             }
         }
-        class NewPost {
+        class Post {
             constructor(container, urls) {
                 this.container = container;
                 this.urls = urls;
             }
+            static getMostFrequentName(posts) {
+                const nameToCount = new Map();
+                let mostFrequentName = '';
+                for (let i = 0; i < posts.length; i++) {
+                    const name = posts[i].name;
+                    nameToCount.set(name, (nameToCount.get(name) || 0) + 1);
+                    if (nameToCount.get(name) > (nameToCount.get(mostFrequentName) || 0)) {
+                        mostFrequentName = name;
+                    }
+                }
+                return mostFrequentName;
+            }
+        }
+        class NewPost extends Post {
+            constructor(container, urls) {
+                super(container, urls);
+            }
             get name() {
                 const fullNameNode = this.container.elements[0].firstElementChild.children[1];
-                const nameNode = fullNameNode.childNodes[0];
+                const nameNode = fullNameNode.firstElementChild;
                 if (!nameNode) {
                     return '';
                 }
@@ -604,20 +627,20 @@
             }
             get isp() {
                 const fullNameNode = this.container.elements[0].firstElementChild.children[1];
-                const ispNode = fullNameNode.childNodes[1];
-                if (!ispNode) {
+                const nameNode = fullNameNode.firstElementChild;
+                const ispNode = fullNameNode.lastElementChild;
+                if (nameNode === ispNode) {
                     return '';
                 }
-                return ispNode.childNodes[ispNode.childNodes.length - 2].textContent;
+                return ispNode.tagName === 'A' ? ispNode.lastElementChild.previousSibling.textContent : ispNode.previousSibling.textContent;
             }
             get id() {
                 return this.container.elements[0].firstElementChild.lastElementChild.textContent;
             }
         }
-        class OldPost {
+        class OldPost extends Post {
             constructor(container, urls) {
-                this.container = container;
-                this.urls = urls;
+                super(container, urls);
             }
             get name() {
                 return '';
@@ -651,7 +674,7 @@
             });
             return oldPosts;
         })();
-        const fetchImage = (src, then) => {
+        const fetchAndHashImage = (src, then) => {
             GM_xmlhttpRequest({
                 method: 'GET',
                 url: src,
@@ -661,11 +684,13 @@
                 }
             });
         };
+        const mostFrequentName = Post.getMostFrequentName(posts);
         posts.forEach(post => {
-            if (settings.isSB && !settings.isVisible && post.isp === '(SB-iPhone)') {
+            const isp = post.isp;
+            if (settings.isSB && !settings.isVisible && isp === '(SB-iPhone)') {
                 post.container.hide();
             }
-            if (settings.isSB && post.name === 'Quality of Perfect ') {
+            if (settings.isSB && isp === '(SB-iPhone)' && post.name !== mostFrequentName) {
                 post.container.hide();
             }
             post.urls.forEach(url => {
@@ -687,7 +712,7 @@
                                 tweet.nextElementSibling.remove();
                             }
                             (function retry(count = 0) {
-                                if (count == 3) {
+                                if (count === 3) {
                                     return;
                                 }
                                 if (twttr.widgets && twttr.widgets.load) {
@@ -716,14 +741,14 @@
                                 imgObserver.unobserve(img);
                             }
                             if (img.complete) {
-                                fetchImage(img.dataset.src, (hash) => {
+                                fetchAndHashImage(img.dataset.src, (hash) => {
                                     settings.sblist.add(hash);
                                     settings.save();
                                 });
                             }
                             else {
                                 img.addEventListener('load', () => {
-                                    fetchImage(img.dataset.src, (hash) => {
+                                    fetchAndHashImage(img.dataset.src, (hash) => {
                                         settings.sblist.add(hash);
                                         settings.save();
                                     });
@@ -732,16 +757,28 @@
                         });
                         insertAfter(url, space);
                         insertAfter(space, blockImage);
-                        img.addEventListener('load', () => {
-                            if (post.container.isHidden) {
-                                return;
-                            }
-                            fetchImage(img.dataset.src, (hash) => {
-                                if (settings.sblist.has(hash)) {
-                                    post.container.hide();
-                                }
+                        if (!post.container.isHidden && isp === '(SB-iPhone)') {
+                            post.container.hide();
+                            img.addEventListener('load', () => {
+                                fetchAndHashImage(img.dataset.src, (hash) => {
+                                    if (!settings.sblist.has(hash)) {
+                                        post.container.show();
+                                    }
+                                });
                             });
-                        });
+                        }
+                        else {
+                            img.addEventListener('load', () => {
+                                if (post.container.isHidden) {
+                                    return;
+                                }
+                                fetchAndHashImage(img.dataset.src, (hash) => {
+                                    if (settings.sblist.has(hash)) {
+                                        post.container.hide();
+                                    }
+                                });
+                            });
+                        }
                     }
                 }
             });
