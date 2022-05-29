@@ -297,7 +297,19 @@
                 }, 500);
             }
         });
-    }, { rootMargin: '20%' });
+    }, { rootMargin: '50%' });
+    const divObserver = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.imgs.forEach((img) => {
+                    if (img.src === '') {
+                        img.src = img.dataset.src;
+                    }
+                });
+                divObserver.unobserve(entry.target);
+            }
+        });
+    }, { rootMargin: '50%' });
     document.addEventListener('DOMContentLoaded', () => {
         observer.disconnect();
         const scroll = document.createElement('div');
@@ -584,19 +596,45 @@
             constructor(...elements) {
                 this.elements = elements;
                 this.isHidden = false;
-                this.displays = Array(elements.length);
+                this.styles = new Array(elements.length).fill({
+                    display: '',
+                    width: '',
+                    height: '',
+                    padding: '',
+                    visibility: ''
+                });
             }
             hide() {
                 this.isHidden = true;
                 for (let i = 0; i < this.elements.length; i++) {
-                    this.displays[i] = this.elements[i].style.display;
+                    this.styles[i].display = this.elements[i].style.display;
                     this.elements[i].style.display = 'none';
                 }
             }
             show() {
                 this.isHidden = false;
                 for (let i = 0; i < this.elements.length; i++) {
-                    this.elements[i].style.display = this.displays[i];
+                    this.elements[i].style.display = this.styles[i].display;
+                }
+            }
+            minimize() {
+                for (let i = 0; i < this.elements.length; i++) {
+                    this.styles[i].width = this.elements[i].style.width;
+                    this.styles[i].height = this.elements[i].style.height;
+                    this.styles[i].padding = this.elements[i].style.padding;
+                    this.styles[i].visibility = this.elements[i].style.visibility;
+                    this.elements[i].style.width = '0';
+                    this.elements[i].style.height = '0';
+                    this.elements[i].style.padding = '0';
+                    this.elements[i].style.visibility = 'hidden';
+                }
+            }
+            restore() {
+                for (let i = 0; i < this.elements.length; i++) {
+                    this.elements[i].style.width = this.styles[i].width;
+                    this.elements[i].style.height = this.styles[i].height;
+                    this.elements[i].style.padding = this.styles[i].padding;
+                    this.elements[i].style.visibility = this.styles[i].visibility;
                 }
             }
         }
@@ -625,19 +663,16 @@
             get name() {
                 const fullNameNode = this.container.elements[0].firstElementChild.children[1];
                 const nameNode = fullNameNode.firstElementChild;
-                if (!nameNode) {
-                    return '';
-                }
                 return nameNode.textContent;
             }
             get isp() {
                 const fullNameNode = this.container.elements[0].firstElementChild.children[1];
                 const nameNode = fullNameNode.firstElementChild;
                 const ispNode = fullNameNode.lastElementChild;
-                if (nameNode === ispNode) {
+                if (!ispNode || nameNode === ispNode) {
                     return '';
                 }
-                return ispNode.tagName === 'A' ? ispNode.lastElementChild.previousSibling.textContent : ispNode.previousSibling.textContent;
+                return ispNode.tagName === 'B' ? ispNode.previousSibling.textContent : ispNode.lastChild.previousSibling.textContent;
             }
             get id() {
                 return this.container.elements[0].firstElementChild.lastElementChild.textContent;
@@ -688,12 +723,17 @@
         };
         const mostFrequentName = Post.getMostFrequentName(posts);
         posts.forEach(post => {
-            const isp = post.isp;
-            if (settings.isSB && !settings.isVisible && isp === '(SB-iPhone)') {
-                post.container.hide();
-            }
-            if (settings.isSB && isp === '(SB-iPhone)' && post.name !== mostFrequentName) {
-                post.container.hide();
+            const isSbiPhone = post.isp === '(SB-iPhone)';
+            let newDiv;
+            let forceHidden = false;
+            if (settings.isSB && isSbiPhone) {
+                if (!settings.isVisible || post.name !== mostFrequentName) {
+                    post.container.hide();
+                    forceHidden = true;
+                }
+                if (!post.container.isHidden && post.urls.length > 0) {
+                    post.container.hide();
+                }
             }
             post.urls.forEach(url => {
                 const matchResult = url.href.match(/^.+?\/\?./);
@@ -733,10 +773,10 @@
                     modal.imgs.array.push(img);
                     if (settings.isSB && img.dataset.src.match(/^https?:\/\/(i\.)?imgur/) && img.dataset.src.endsWith('jpg')) {
                         const space = document.createTextNode('\xa0\xa0');
-                        const blockImage = document.createElement('a');
-                        blockImage.innerText = 'ブロック';
-                        blockImage.href = 'javascript:void(0)';
-                        blockImage.addEventListener('click', () => {
+                        const blockButton = document.createElement('a');
+                        blockButton.innerText = 'ブロック';
+                        blockButton.href = 'javascript:void(0)';
+                        blockButton.addEventListener('click', () => {
                             post.container.hide();
                             if (img.src === '') {
                                 img.src = img.dataset.src;
@@ -758,13 +798,29 @@
                             }
                         });
                         insertAfter(url, space);
-                        insertAfter(space, blockImage);
-                        if (!post.container.isHidden && isp === '(SB-iPhone)') {
-                            post.container.hide();
+                        insertAfter(space, blockButton);
+                        if (isSbiPhone) {
+                            if (!newDiv) {
+                                const currentDiv = post.container.elements[0];
+                                newDiv = document.createElement('div');
+                                newDiv.imgs = [];
+                                newDiv.post = post;
+                                newDiv.count = 0;
+                                currentDiv.parentElement.insertBefore(newDiv, currentDiv);
+                                divObserver.observe(newDiv);
+                            }
+                            newDiv.imgs.push(img);
                             img.addEventListener('load', () => {
+                                if (newDiv.containsBlockedImage) {
+                                    return;
+                                }
                                 fetchAndHashImage(img.dataset.src, (hash) => {
-                                    if (!settings.sblist.has(hash)) {
-                                        post.container.show();
+                                    newDiv.count++;
+                                    if (settings.sblist.has(hash)) {
+                                        newDiv.containsBlockedImage = true;
+                                    }
+                                    if (newDiv.count === newDiv.imgs.length && !newDiv.containsBlockedImage && !forceHidden) {
+                                        newDiv.post.container.show();
                                     }
                                 });
                             });
