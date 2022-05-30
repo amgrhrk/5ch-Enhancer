@@ -107,6 +107,16 @@
             }, 'image/jpeg', 100);
         });
     }
+    function fetchAndHashImage(src, then) {
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: src,
+            responseType: 'arraybuffer',
+            onload: (response) => {
+                getHash(response.response).then(then);
+            }
+        });
+    }
     class MenuOption {
         constructor(init) {
             var _a;
@@ -143,6 +153,13 @@
                 return true;
             }
             return false;
+        }
+        static addDisable(checkbox, ...disables) {
+            const checkboxEx = checkbox;
+            if (!checkboxEx.disables) {
+                checkboxEx.disables = [];
+            }
+            checkboxEx.disables = checkboxEx.disables.concat(disables);
         }
     }
     class MenuOptionWithButton extends MenuOption {
@@ -196,6 +213,119 @@
             this.oncancel = oncancel;
         }
     }
+    class FakeDiv {
+        constructor(...elements) {
+            this.elements = elements;
+            this.isHidden = false;
+            this.styles = new Array(elements.length).fill({
+                display: '',
+                width: '',
+                height: '',
+                padding: '',
+                visibility: ''
+            });
+        }
+        hide() {
+            if (this.isHidden) {
+                return;
+            }
+            this.isHidden = true;
+            for (let i = 0; i < this.elements.length; i++) {
+                this.styles[i].display = this.elements[i].style.display;
+                this.elements[i].style.display = 'none';
+            }
+        }
+        show() {
+            if (!this.isHidden) {
+                return;
+            }
+            this.isHidden = false;
+            for (let i = 0; i < this.elements.length; i++) {
+                this.elements[i].style.display = this.styles[i].display;
+            }
+        }
+        minimize() {
+            for (let i = 0; i < this.elements.length; i++) {
+                this.styles[i].width = this.elements[i].style.width;
+                this.styles[i].height = this.elements[i].style.height;
+                this.styles[i].padding = this.elements[i].style.padding;
+                this.styles[i].visibility = this.elements[i].style.visibility;
+                this.elements[i].style.width = '0';
+                this.elements[i].style.height = '0';
+                this.elements[i].style.padding = '0';
+                this.elements[i].style.visibility = 'hidden';
+            }
+        }
+        restore() {
+            for (let i = 0; i < this.elements.length; i++) {
+                this.elements[i].style.width = this.styles[i].width;
+                this.elements[i].style.height = this.styles[i].height;
+                this.elements[i].style.padding = this.styles[i].padding;
+                this.elements[i].style.visibility = this.styles[i].visibility;
+            }
+        }
+    }
+    class Post {
+        constructor(container, urls) {
+            this.container = container;
+            this.urls = urls;
+        }
+        static getMostFrequentName(posts) {
+            const nameToCount = new Map();
+            let mostFrequentName = '';
+            for (let i = 0; i < posts.length; i++) {
+                const name = posts[i].name;
+                nameToCount.set(name, (nameToCount.get(name) || 0) + 1);
+                if (nameToCount.get(name) > (nameToCount.get(mostFrequentName) || 0)) {
+                    mostFrequentName = name;
+                }
+            }
+            return mostFrequentName;
+        }
+    }
+    class NewPost extends Post {
+        constructor(container, urls) {
+            super(container, urls);
+        }
+        get name() {
+            const fullNameNode = this.container.elements[0].firstElementChild.children[1];
+            const nameNode = fullNameNode.firstElementChild;
+            return nameNode.textContent;
+        }
+        get isp() {
+            const fullNameNode = this.container.elements[0].firstElementChild.children[1];
+            const nameNode = fullNameNode.firstElementChild;
+            const ispNode = fullNameNode.lastElementChild;
+            if (!ispNode || nameNode === ispNode) {
+                return '';
+            }
+            return ispNode.tagName === 'B' ? ispNode.previousSibling.textContent : ispNode.lastChild.previousSibling.textContent;
+        }
+        get id() {
+            return this.container.elements[0].firstElementChild.lastElementChild.textContent;
+        }
+        get comment() {
+            return this.container.elements[0].lastElementChild.firstElementChild.innerText;
+        }
+    }
+    class OldPost extends Post {
+        constructor(container, urls) {
+            super(container, urls);
+        }
+        get name() {
+            return this.container.elements[0].firstElementChild.firstElementChild.textContent;
+        }
+        get isp() {
+            const ispNode = this.container.elements[0].firstElementChild.firstElementChild.nextSibling;
+            return ispNode ? ispNode.textContent : '';
+        }
+        get id() {
+            return this.container.elements[0].lastChild.textContent;
+        }
+        get comment() {
+            return this.container.elements[1].innerText;
+        }
+    }
     const settings = (() => {
         const defaultSettings = {
             isVisible: true,
@@ -206,8 +336,7 @@
             blacklist: new Set(),
             sblist: new Set(),
             save: () => {
-                const gmSettings = {};
-                Object.assign(gmSettings, defaultSettings);
+                const gmSettings = Object.assign({}, defaultSettings);
                 gmSettings.blacklist = Array.from(gmSettings.blacklist);
                 gmSettings.sblist = Array.from(gmSettings.sblist);
                 GM_setValue('5ch Enhancer', gmSettings);
@@ -297,7 +426,7 @@
                 }, 500);
             }
         });
-    }, { rootMargin: '50%' });
+    }, { rootMargin: `${window.innerHeight}px` });
     const divObserver = new IntersectionObserver(entries => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -309,7 +438,7 @@
                 divObserver.unobserve(entry.target);
             }
         });
-    }, { rootMargin: '50%' });
+    }, { rootMargin: `${window.innerHeight}px` });
     document.addEventListener('DOMContentLoaded', () => {
         observer.disconnect();
         const scroll = document.createElement('div');
@@ -437,8 +566,7 @@
         modal.container.appendChild(modal.img);
         document.body.appendChild(modal.container);
         const imgOnclick = function () {
-            var _a;
-            modal.imgs.index = (_a = modal.imgs.map.get(this)) !== null && _a !== void 0 ? _a : 0;
+            modal.imgs.index = modal.imgs.map.get(this) || 0;
             modal.img.src = this.src;
             modal.overflow = document.body.style.overflow;
             document.body.style.overflow = 'hidden';
@@ -479,7 +607,6 @@
                     MenuOption.toggleDisable.call(thumbnailOption.checkbox);
                 }
             });
-            thumbnailOption.checkbox.disables = [];
             const dragOption = new MenuOption({
                 text: 'ドラッグで画像を移動する',
                 checked: settings.isDraggable,
@@ -491,7 +618,7 @@
                 }
             });
             dragOption.checkbox.disabled = !settings.isVisible;
-            thumbnailOption.checkbox.disables.push(dragOption.checkbox);
+            MenuOption.addDisable(thumbnailOption.checkbox, dragOption.checkbox);
             const embedOption = new MenuOption({
                 text: 'ツイートを埋め込む',
                 checked: settings.isEmbedded,
@@ -515,8 +642,7 @@
                 }
             });
             blockOption.button.disabled = !settings.isBlocked;
-            blockOption.checkbox.disables = [];
-            blockOption.checkbox.disables.push(blockOption.button);
+            MenuOption.addDisable(blockOption.checkbox, blockOption.button);
             const blockOptionPopupWindow = new PopupWindow(blockOption.button, settings.blacklist, () => {
                 settings.blacklist = new Set(blockOptionPopupWindow.textarea.value.split('\n').filter(word => word.length > 0));
                 blockOptionPopupWindow.textarea.value = Array.from(settings.blacklist).join('\n');
@@ -536,8 +662,7 @@
                 }
             });
             sbiPhoneOption.button.disabled = !settings.isSB;
-            sbiPhoneOption.checkbox.disables = [];
-            sbiPhoneOption.checkbox.disables.push(sbiPhoneOption.button);
+            MenuOption.addDisable(sbiPhoneOption.checkbox, sbiPhoneOption.button);
             thumbnailOption.checkbox.addEventListener('click', () => {
                 if (sbiPhoneOption.checkbox.checked && !thumbnailOption.checkbox.checked) {
                     alert('サムネイルをオフにしつつSB-iPhone対策をオンにするとすべてのSB-iPhoneのスレが表示しなくなります');
@@ -572,7 +697,7 @@
                 document.getElementById('close_options'),
                 document.querySelector('div.option_container_bg')
             ];
-            const cancelF = () => {
+            const oncancel = () => {
                 thumbnailOption.oncancel();
                 dragOption.oncancel();
                 embedOption.oncancel();
@@ -581,118 +706,9 @@
                 sbiPhoneOption.oncancel();
                 sbiPhoneOptionPopupWindow.oncancel();
             };
-            cancels.forEach(cancel => cancel === null || cancel === void 0 ? void 0 : cancel.addEventListener('click', cancelF));
+            cancels.forEach(cancel => cancel === null || cancel === void 0 ? void 0 : cancel.addEventListener('click', oncancel));
         };
         setTimeout(createMenu, 2000);
-        if (settings.isBlocked && settings.blacklist.size > 0) {
-            const comments = document.querySelectorAll('span.escaped, dl.thread dd');
-            comments.forEach(comment => {
-                if (Array.from(settings.blacklist).some(word => comment.innerText.includes(word))) {
-                    comment.style.display = 'none';
-                }
-            });
-        }
-        class FakeDiv {
-            constructor(...elements) {
-                this.elements = elements;
-                this.isHidden = false;
-                this.styles = new Array(elements.length).fill({
-                    display: '',
-                    width: '',
-                    height: '',
-                    padding: '',
-                    visibility: ''
-                });
-            }
-            hide() {
-                this.isHidden = true;
-                for (let i = 0; i < this.elements.length; i++) {
-                    this.styles[i].display = this.elements[i].style.display;
-                    this.elements[i].style.display = 'none';
-                }
-            }
-            show() {
-                this.isHidden = false;
-                for (let i = 0; i < this.elements.length; i++) {
-                    this.elements[i].style.display = this.styles[i].display;
-                }
-            }
-            minimize() {
-                for (let i = 0; i < this.elements.length; i++) {
-                    this.styles[i].width = this.elements[i].style.width;
-                    this.styles[i].height = this.elements[i].style.height;
-                    this.styles[i].padding = this.elements[i].style.padding;
-                    this.styles[i].visibility = this.elements[i].style.visibility;
-                    this.elements[i].style.width = '0';
-                    this.elements[i].style.height = '0';
-                    this.elements[i].style.padding = '0';
-                    this.elements[i].style.visibility = 'hidden';
-                }
-            }
-            restore() {
-                for (let i = 0; i < this.elements.length; i++) {
-                    this.elements[i].style.width = this.styles[i].width;
-                    this.elements[i].style.height = this.styles[i].height;
-                    this.elements[i].style.padding = this.styles[i].padding;
-                    this.elements[i].style.visibility = this.styles[i].visibility;
-                }
-            }
-        }
-        class Post {
-            constructor(container, urls) {
-                this.container = container;
-                this.urls = urls;
-            }
-            static getMostFrequentName(posts) {
-                const nameToCount = new Map();
-                let mostFrequentName = '';
-                for (let i = 0; i < posts.length; i++) {
-                    const name = posts[i].name;
-                    nameToCount.set(name, (nameToCount.get(name) || 0) + 1);
-                    if (nameToCount.get(name) > (nameToCount.get(mostFrequentName) || 0)) {
-                        mostFrequentName = name;
-                    }
-                }
-                return mostFrequentName;
-            }
-        }
-        class NewPost extends Post {
-            constructor(container, urls) {
-                super(container, urls);
-            }
-            get name() {
-                const fullNameNode = this.container.elements[0].firstElementChild.children[1];
-                const nameNode = fullNameNode.firstElementChild;
-                return nameNode.textContent;
-            }
-            get isp() {
-                const fullNameNode = this.container.elements[0].firstElementChild.children[1];
-                const nameNode = fullNameNode.firstElementChild;
-                const ispNode = fullNameNode.lastElementChild;
-                if (!ispNode || nameNode === ispNode) {
-                    return '';
-                }
-                return ispNode.tagName === 'B' ? ispNode.previousSibling.textContent : ispNode.lastChild.previousSibling.textContent;
-            }
-            get id() {
-                return this.container.elements[0].firstElementChild.lastElementChild.textContent;
-            }
-        }
-        class OldPost extends Post {
-            constructor(container, urls) {
-                super(container, urls);
-            }
-            get name() {
-                return this.container.elements[0].firstElementChild.firstElementChild.textContent;
-            }
-            get isp() {
-                const ispNode = this.container.elements[0].firstElementChild.firstElementChild.nextSibling;
-                return ispNode ? ispNode.textContent : '';
-            }
-            get id() {
-                return this.container.elements[0].lastChild.textContent;
-            }
-        }
         const posts = (() => {
             const newPostDivs = Array.from(document.querySelectorAll('div.post'));
             if (newPostDivs.length !== 0) {
@@ -711,28 +727,24 @@
             });
             return oldPosts;
         })();
-        const fetchAndHashImage = (src, then) => {
-            GM_xmlhttpRequest({
-                method: 'GET',
-                url: src,
-                responseType: 'arraybuffer',
-                onload: (response) => {
-                    getHash(response.response).then(then);
-                }
-            });
-        };
         const mostFrequentName = Post.getMostFrequentName(posts);
         posts.forEach(post => {
             const isSbiPhone = post.isp === '(SB-iPhone)';
-            let newDiv;
+            let observedDiv;
             let forceHidden = false;
-            if (settings.isSB && isSbiPhone) {
+            if (!post.container.isHidden && settings.isSB && isSbiPhone) {
                 if (!settings.isVisible || post.name !== mostFrequentName) {
                     post.container.hide();
                     forceHidden = true;
                 }
-                if (!post.container.isHidden && post.urls.length > 0) {
+                if (post.urls.length > 0) {
                     post.container.hide();
+                }
+            }
+            if (!post.container.isHidden && settings.isBlocked) {
+                if (Array.from(settings.blacklist).some(word => post.comment.includes(word))) {
+                    post.container.hide();
+                    forceHidden = true;
                 }
             }
             post.urls.forEach(url => {
@@ -800,27 +812,27 @@
                         insertAfter(url, space);
                         insertAfter(space, blockButton);
                         if (isSbiPhone) {
-                            if (!newDiv) {
+                            if (!observedDiv) {
                                 const currentDiv = post.container.elements[0];
-                                newDiv = document.createElement('div');
-                                newDiv.imgs = [];
-                                newDiv.post = post;
-                                newDiv.count = 0;
-                                currentDiv.parentElement.insertBefore(newDiv, currentDiv);
-                                divObserver.observe(newDiv);
+                                observedDiv = document.createElement('div');
+                                observedDiv.imgs = [];
+                                observedDiv.post = post;
+                                observedDiv.count = 0;
+                                currentDiv.parentElement.insertBefore(observedDiv, currentDiv);
+                                divObserver.observe(observedDiv);
                             }
-                            newDiv.imgs.push(img);
+                            observedDiv.imgs.push(img);
                             img.addEventListener('load', () => {
-                                if (newDiv.containsBlockedImage) {
+                                if (observedDiv.containsBlockedImage) {
                                     return;
                                 }
                                 fetchAndHashImage(img.dataset.src, (hash) => {
-                                    newDiv.count++;
+                                    observedDiv.count++;
                                     if (settings.sblist.has(hash)) {
-                                        newDiv.containsBlockedImage = true;
+                                        observedDiv.containsBlockedImage = true;
                                     }
-                                    if (newDiv.count === newDiv.imgs.length && !newDiv.containsBlockedImage && !forceHidden) {
-                                        newDiv.post.container.show();
+                                    if (observedDiv.count === observedDiv.imgs.length && !observedDiv.containsBlockedImage && !forceHidden) {
+                                        observedDiv.post.container.show();
                                     }
                                 });
                             });

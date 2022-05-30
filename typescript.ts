@@ -27,7 +27,7 @@
     "use strict"
     function GM_xmlhttpRequest(object: object) { }
     function GM_setValue(string: string, object: object) { }
-    function GM_getValue(string: string, object?: object) { }
+    function GM_getValue(string: string, object?: object): any { }
     const BlockHash = {
         blockhash: (img: ArrayBuffer, bit: number, type: number, callback: (err: any, hash: string) => void) => { }
     }
@@ -109,6 +109,17 @@
         })
     }
 
+    function fetchAndHashImage(src: string, then: (hash: string) => void) {
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: src,
+            responseType: 'arraybuffer',
+            onload: (response: XMLHttpRequest) => {
+                getHash(response.response as ArrayBuffer).then(then)
+            }
+        })
+    }
+
     interface MenuOptionInit {
         text?: string
         checked?: boolean
@@ -150,7 +161,7 @@
             MenuOption.head = prev
         }
 
-        static toggleDisable(this: (HTMLInputElement & {disables: HTMLInputElement[] | HTMLButtonElement[]})) {
+        static toggleDisable(this: (HTMLInputElement & { disables: (HTMLInputElement | HTMLButtonElement)[] })) {
             this.disables.forEach(d => {
                 d.disabled = !this.checked
             })
@@ -162,6 +173,14 @@
                 return true
             }
             return false
+        }
+
+        static addDisable(checkbox: HTMLInputElement, ...disables: (HTMLInputElement | HTMLButtonElement)[]) {
+            const checkboxEx = checkbox as HTMLInputElement & { disables: (HTMLInputElement | HTMLButtonElement)[] }
+            if (!checkboxEx.disables) {
+                checkboxEx.disables = []
+            }
+            checkboxEx.disables = checkboxEx.disables.concat(disables)
         }
     }
 
@@ -226,6 +245,145 @@
         }
     }
 
+    class FakeDiv {
+        private styles: {
+            display: string,
+            width: string,
+            height: string,
+            padding: string,
+            visibility: string
+        }[]
+        elements: HTMLElement[]
+        isHidden: boolean
+
+        constructor(...elements: HTMLElement[]) {
+            this.elements = elements
+            this.isHidden = false
+            this.styles = new Array(elements.length).fill({
+                display: '',
+                width: '',
+                height: '',
+                padding: '',
+                visibility: ''
+            })
+        }
+
+        hide() {
+            if (this.isHidden) { return }
+            this.isHidden = true
+            for (let i = 0; i < this.elements.length; i++) {
+                this.styles[i].display = this.elements[i].style.display
+                this.elements[i].style.display = 'none'
+            }
+        }
+
+        show() {
+            if (!this.isHidden) { return }
+            this.isHidden = false
+            for (let i = 0; i < this.elements.length; i++) {
+                this.elements[i].style.display = this.styles[i].display
+            }
+        }
+
+        minimize() {
+            for (let i = 0; i < this.elements.length; i++) {
+                this.styles[i].width = this.elements[i].style.width
+                this.styles[i].height = this.elements[i].style.height
+                this.styles[i].padding = this.elements[i].style.padding
+                this.styles[i].visibility = this.elements[i].style.visibility
+                this.elements[i].style.width = '0'
+                this.elements[i].style.height = '0'
+                this.elements[i].style.padding = '0'
+                this.elements[i].style.visibility = 'hidden'
+            }
+        }
+
+        restore() {
+            for (let i = 0; i < this.elements.length; i++) {
+                this.elements[i].style.width = this.styles[i].width
+                this.elements[i].style.height = this.styles[i].height
+                this.elements[i].style.padding = this.styles[i].padding
+                this.elements[i].style.visibility = this.styles[i].visibility
+            }
+        }
+    }
+
+    abstract class Post {
+        container: FakeDiv
+        urls: HTMLAnchorElement[]
+        abstract get name(): string
+        abstract get id(): string
+        abstract get isp(): string
+        abstract get comment(): string
+
+        constructor(container: FakeDiv, urls: HTMLAnchorElement[]) {
+            this.container = container
+            this.urls = urls
+        }
+
+        static getMostFrequentName(posts: Post[]) {
+            const nameToCount = new Map<string, number>()
+            let mostFrequentName = ''
+            for (let i = 0; i < posts.length; i++) {
+                const name = posts[i].name
+                nameToCount.set(name, (nameToCount.get(name) || 0) + 1)
+                if (nameToCount.get(name)! > (nameToCount.get(mostFrequentName) || 0)) {
+                    mostFrequentName = name
+                }
+            }
+            return mostFrequentName
+        }
+    }
+    class NewPost extends Post {
+        constructor(container: FakeDiv, urls: HTMLAnchorElement[]) {
+            super(container, urls)
+        }
+
+        get name() {
+            const fullNameNode = this.container.elements[0].firstElementChild!.children[1]
+            const nameNode = fullNameNode.firstElementChild!
+            return nameNode.textContent!
+        }
+
+        get isp() {
+            const fullNameNode = this.container.elements[0].firstElementChild!.children[1]
+            const nameNode = fullNameNode.firstElementChild!
+            const ispNode = fullNameNode.lastElementChild!
+            if (!ispNode || nameNode === ispNode) { return '' }
+            return ispNode.tagName === 'B' ? ispNode.previousSibling!.textContent! : ispNode.lastChild!.previousSibling!.textContent!
+        }
+
+        get id() {
+            return this.container.elements[0].firstElementChild!.lastElementChild!.textContent!
+        }
+
+        get comment() {
+            return (this.container.elements[0].lastElementChild!.firstElementChild! as HTMLElement).innerText
+        }
+    }
+    class OldPost extends Post {
+        constructor(container: FakeDiv, urls: HTMLAnchorElement[]) {
+            super(container, urls)
+        }
+
+        get name() {
+            return this.container.elements[0].firstElementChild!.firstElementChild!.textContent!
+        }
+
+        get isp() {
+            const ispNode = this.container.elements[0].firstElementChild!.firstElementChild!.nextSibling
+            return ispNode ? ispNode.textContent! : ''
+        }
+
+        get id() {
+            return this.container.elements[0].lastChild!.textContent!
+        }
+
+        get comment() {
+            return this.container.elements[1].innerText
+        }
+    }
+
     const settings = (() => {
         const defaultSettings = {
             isVisible: true,
@@ -236,21 +394,20 @@
             blacklist: new Set<string>(),
             sblist: new Set<string>(),
             save: () => {
-                const gmSettings: any = {}
-                Object.assign(gmSettings, defaultSettings)
+                const gmSettings = Object.assign({} as any, defaultSettings)
                 gmSettings.blacklist = Array.from(gmSettings.blacklist)
                 gmSettings.sblist = Array.from(gmSettings.sblist)
                 GM_setValue('5ch Enhancer', gmSettings)
             }
         }
         const gmSettings = GM_getValue('5ch Enhancer')
-        if (Array.isArray((gmSettings as any).blacklist)) {
-            (gmSettings as any).blacklist = new Set<string>((gmSettings as any).blacklist)
+        if (Array.isArray(gmSettings.blacklist)) {
+            gmSettings.blacklist = new Set<string>(gmSettings.blacklist)
         }
-        if (Array.isArray((gmSettings as any).sblist)) {
-            (gmSettings as any).sblist = new Set<string>((gmSettings as any).sblist)
+        if (Array.isArray(gmSettings.sblist)) {
+            gmSettings.sblist = new Set<string>(gmSettings.sblist)
         }
-        return Object.assign(defaultSettings, gmSettings)
+        return Object.assign(defaultSettings, gmSettings as {})
     })()
 
     const twttr = (() => {
@@ -290,23 +447,23 @@
         })(unsafeWindow.document, 'blockhash')
     })()
 
-    const observer: MutationObserver = new MutationObserver(mutations => {
+    const observer: MutationObserver & { dealWith: (node: Node) => void } = new MutationObserver(mutations => {
         mutations.forEach(mutation => {
             mutation.addedNodes.forEach(addedNode => {
                 if (addedNode.nodeType === Node.ELEMENT_NODE) {
-                    (observer as any).dealWith(addedNode)
+                    observer.dealWith(addedNode)
                 }
             })
         })
-    });
+    }) as any
 
-    (observer as any).dealWith = (() => {
+    observer.dealWith = (() => {
         const functionMap: Record<string, () => void> = {}
         functionMap['https://agree.5ch.net/js/thumbnailer.js'] = function (this: HTMLElement) {
             this.remove()
         }
-        return (node: HTMLScriptElement) => {
-            const f = functionMap[node.src]
+        return (node: Node) => {
+            const f = functionMap[(node as any).src]
             if (f) {
                 f.call(node)
             }
@@ -325,7 +482,7 @@
                 }, 500)
             }
         })
-    }, { rootMargin: '50%' })
+    }, { rootMargin: `${window.innerHeight}px` })
     const divObserver = new IntersectionObserver(entries => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -337,7 +494,7 @@
                 divObserver.unobserve(entry.target)
             }
         })
-    }, { rootMargin: '50%'} )
+    }, { rootMargin: `${window.innerHeight}px` } )
 
     document.addEventListener('DOMContentLoaded', () => {
         observer.disconnect()
@@ -457,13 +614,12 @@
         document.body.appendChild(modal.container)
 
         const imgOnclick = function (this: HTMLImageElement) {
-            modal.imgs.index = modal.imgs.map.get(this) ?? 0
+            modal.imgs.index = modal.imgs.map.get(this) || 0
             modal.img.src = this.src
             modal.overflow = document.body.style.overflow
             document.body.style.overflow = 'hidden'
             modal.container.style.display = 'flex'
         }
-
         const appendImageAfter = (element: HTMLElement) => {
             const fragment = document.createDocumentFragment()
             fragment.appendChild(document.createElement('br'))
@@ -501,7 +657,6 @@
                     MenuOption.toggleDisable.call(thumbnailOption.checkbox as any)
                 }
             });
-            (thumbnailOption.checkbox as any).disables = []
             const dragOption = new MenuOption({
                 text: 'ドラッグで画像を移動する',
                 checked: settings.isDraggable,
@@ -513,7 +668,7 @@
                 }
             })
             dragOption.checkbox.disabled = !settings.isVisible;
-            (thumbnailOption.checkbox as any).disables.push(dragOption.checkbox)
+            MenuOption.addDisable(thumbnailOption.checkbox, dragOption.checkbox)
             const embedOption = new MenuOption({
                 text: 'ツイートを埋め込む',
                 checked: settings.isEmbedded,
@@ -536,9 +691,8 @@
                     MenuOption.toggleDisable.call(blockOption.checkbox as any)
                 }
             })
-            blockOption.button.disabled = !settings.isBlocked;
-            (blockOption.checkbox as any).disables = [];
-            (blockOption.checkbox as any).disables.push(blockOption.button)
+            blockOption.button.disabled = !settings.isBlocked
+            MenuOption.addDisable(blockOption.checkbox, blockOption.button)
             const blockOptionPopupWindow = new PopupWindow(
                 blockOption.button, settings.blacklist,
                 () => {
@@ -561,9 +715,8 @@
                     MenuOption.toggleDisable.call(sbiPhoneOption.checkbox as any)
                 }
             })
-            sbiPhoneOption.button.disabled = !settings.isSB;
-            (sbiPhoneOption.checkbox as any).disables = [];
-            (sbiPhoneOption.checkbox as any).disables.push(sbiPhoneOption.button)
+            sbiPhoneOption.button.disabled = !settings.isSB
+            MenuOption.addDisable(sbiPhoneOption.checkbox, sbiPhoneOption.button)
             thumbnailOption.checkbox.addEventListener('click', () => {
                 if (sbiPhoneOption.checkbox.checked && !thumbnailOption.checkbox.checked) {
                     alert('サムネイルをオフにしつつSB-iPhone対策をオンにするとすべてのSB-iPhoneのスレが表示しなくなります')
@@ -603,7 +756,7 @@
                 document.getElementById('close_options'),
                 document.querySelector('div.option_container_bg')
             ]
-            const cancelF = () => {
+            const oncancel = () => {
                 thumbnailOption.oncancel()
                 dragOption.oncancel()
                 embedOption.oncancel()
@@ -612,146 +765,9 @@
                 sbiPhoneOption.oncancel()
                 sbiPhoneOptionPopupWindow.oncancel()
             }
-            cancels.forEach(cancel => cancel?.addEventListener('click', cancelF))
+            cancels.forEach(cancel => cancel?.addEventListener('click', oncancel))
         }
         setTimeout(createMenu, 2000)
-
-        if (settings.isBlocked && settings.blacklist.size > 0) {
-            const comments = document.querySelectorAll<HTMLSpanElement>('span.escaped, dl.thread dd')
-            comments.forEach(comment => {
-                if (Array.from(settings.blacklist).some(word => comment.innerText.includes(word))) {
-                    comment.style.display = 'none'
-                }
-            })
-        }
-
-        class FakeDiv {
-            private styles: {
-                display: string,
-                width: string,
-                height: string,
-                padding: string,
-                visibility: string
-            }[]
-            elements: HTMLElement[]
-            isHidden: boolean
-
-            constructor(...elements: HTMLElement[]) {
-                this.elements = elements
-                this.isHidden = false
-                this.styles = new Array(elements.length).fill({
-                    display: '',
-                    width: '',
-                    height: '',
-                    padding: '',
-                    visibility: ''
-                })
-            }
-
-            hide() {
-                this.isHidden = true
-                for (let i = 0; i < this.elements.length; i++) {
-                    this.styles[i].display = this.elements[i].style.display
-                    this.elements[i].style.display = 'none'
-                }
-            }
-
-            show() {
-                this.isHidden = false
-                for (let i = 0; i < this.elements.length; i++) {
-                    this.elements[i].style.display = this.styles[i].display
-                }
-            }
-
-            minimize() {
-                for (let i = 0; i < this.elements.length; i++) {
-                    this.styles[i].width = this.elements[i].style.width
-                    this.styles[i].height = this.elements[i].style.height
-                    this.styles[i].padding = this.elements[i].style.padding
-                    this.styles[i].visibility = this.elements[i].style.visibility
-                    this.elements[i].style.width = '0'
-                    this.elements[i].style.height = '0'
-                    this.elements[i].style.padding = '0'
-                    this.elements[i].style.visibility = 'hidden'
-                }
-            }
-
-            restore() {
-                for (let i = 0; i < this.elements.length; i++) {
-                    this.elements[i].style.width = this.styles[i].width
-                    this.elements[i].style.height = this.styles[i].height
-                    this.elements[i].style.padding = this.styles[i].padding
-                    this.elements[i].style.visibility = this.styles[i].visibility
-                }
-            }
-        }
-
-        abstract class Post {
-            container: FakeDiv
-            urls: HTMLAnchorElement[]
-            abstract get name(): string
-            abstract get id(): string
-            abstract get isp(): string
-
-            constructor(container: FakeDiv, urls: HTMLAnchorElement[]) {
-                this.container = container
-                this.urls = urls
-            }
-
-            static getMostFrequentName(posts: Post[]) {
-                const nameToCount = new Map<string, number>()
-                let mostFrequentName = ''
-                for (let i = 0; i < posts.length; i++) {
-                    const name = posts[i].name
-                    nameToCount.set(name, (nameToCount.get(name) || 0) + 1)
-                    if (nameToCount.get(name)! > (nameToCount.get(mostFrequentName) || 0)) {
-                        mostFrequentName = name
-                    }
-                }
-                return mostFrequentName
-            }
-        }
-        class NewPost extends Post {
-            constructor(container: FakeDiv, urls: HTMLAnchorElement[]) {
-                super(container, urls)
-            }
-
-            get name() {
-                const fullNameNode = this.container.elements[0].firstElementChild!.children[1]
-                const nameNode = fullNameNode.firstElementChild!
-                return nameNode.textContent!
-            }
-
-            get isp() {
-                const fullNameNode = this.container.elements[0].firstElementChild!.children[1]
-                const nameNode = fullNameNode.firstElementChild!
-                const ispNode = fullNameNode.lastElementChild!
-                if (!ispNode || nameNode === ispNode) { return '' }
-                return ispNode.tagName === 'B' ? ispNode.previousSibling!.textContent! : ispNode.lastChild!.previousSibling!.textContent!
-            }
-
-            get id() {
-                return this.container.elements[0].firstElementChild!.lastElementChild!.textContent!
-            }
-        }
-        class OldPost extends Post {
-            constructor(container: FakeDiv, urls: HTMLAnchorElement[]) {
-                super(container, urls)
-            }
-
-            get name() {
-                return this.container.elements[0].firstElementChild!.firstElementChild!.textContent!
-            }
-
-            get isp() {
-                const ispNode = this.container.elements[0].firstElementChild!.firstElementChild!.nextSibling
-                return ispNode ? ispNode.textContent! : ''
-            }
-
-            get id() {
-                return this.container.elements[0].lastChild!.textContent!
-            }
-        }
 
         const posts: Post[] = (() => {
             const newPostDivs = Array.from(document.querySelectorAll<HTMLDivElement>('div.post'))
@@ -778,28 +794,24 @@
             return oldPosts
         })()
 
-        const fetchAndHashImage = (src: string, then: (hash: string) => void) => {
-            GM_xmlhttpRequest({
-                method: 'GET',
-                url: src,
-                responseType: 'arraybuffer',
-                onload: (response: XMLHttpRequest) => {
-                    getHash(response.response as ArrayBuffer).then(then)
-                }
-            })
-        }
         const mostFrequentName = Post.getMostFrequentName(posts)
         posts.forEach(post => {
             const isSbiPhone = post.isp === '(SB-iPhone)'
-            let newDiv: HTMLDivElement
+            let observedDiv: HTMLDivElement & { imgs: HTMLImageElement[], post: Post, count: number, containsBlockedImage: boolean }
             let forceHidden = false
-            if (settings.isSB && isSbiPhone) {
+            if (!post.container.isHidden && settings.isSB && isSbiPhone) {
                 if (!settings.isVisible || post.name !== mostFrequentName) {
                     post.container.hide()
                     forceHidden = true
                 }
-                if (!post.container.isHidden && post.urls.length > 0) {
+                if (post.urls.length > 0) {
                     post.container.hide()
+                }
+            }
+            if (!post.container.isHidden && settings.isBlocked) {
+                if (Array.from(settings.blacklist).some(word => post.comment.includes(word))) {
+                    post.container.hide()
+                    forceHidden = true
                 }
             }
             post.urls.forEach(url => {
@@ -861,25 +873,25 @@
                         insertAfter(url, space)
                         insertAfter(space, blockButton)
                         if (isSbiPhone) {
-                            if (!newDiv) {
+                            if (!observedDiv) {
                                 const currentDiv = post.container.elements[0]
-                                newDiv = document.createElement('div');
-                                (newDiv as any).imgs = [];
-                                (newDiv as any).post = post;
-                                (newDiv as any).count = 0
-                                currentDiv.parentElement!.insertBefore(newDiv, currentDiv)
-                                divObserver.observe(newDiv)
+                                observedDiv = document.createElement('div') as any
+                                observedDiv.imgs = []
+                                observedDiv.post = post;
+                                observedDiv.count = 0
+                                currentDiv.parentElement!.insertBefore(observedDiv, currentDiv)
+                                divObserver.observe(observedDiv)
                             }
-                            (newDiv as any).imgs.push(img)
+                            observedDiv.imgs.push(img)
                             img.addEventListener('load', () => {
-                                if ((newDiv as any).containsBlockedImage) { return }
+                                if (observedDiv.containsBlockedImage) { return }
                                 fetchAndHashImage(img.dataset.src!, (hash) => {
-                                    (newDiv as any).count++
+                                    observedDiv.count++
                                     if (settings.sblist.has(hash)) {
-                                        (newDiv as any).containsBlockedImage = true
+                                        observedDiv.containsBlockedImage = true
                                     }
-                                    if ((newDiv as any).count === (newDiv as any).imgs.length && !(newDiv as any).containsBlockedImage && !forceHidden) {
-                                        (newDiv as any).post.container.show()
+                                    if (observedDiv.count === observedDiv.imgs.length && !observedDiv.containsBlockedImage && !forceHidden) {
+                                        observedDiv.post.container.show()
                                     }
                                 })
                             })
