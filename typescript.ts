@@ -371,8 +371,10 @@
         }
 
         get isp() {
-            const ispNode = this.container.elements[0].firstElementChild!.firstElementChild!.nextSibling
-            return ispNode ? ispNode.textContent! : ''
+            const nameNode = this.container.elements[0].firstElementChild!.firstElementChild
+            const ispNode = this.container.elements[0].firstElementChild!.lastElementChild!.previousSibling
+            if (!ispNode || ispNode === nameNode) { return '' }
+            return ispNode!.textContent!
         }
 
         get id() {
@@ -769,18 +771,135 @@
         }
         setTimeout(createMenu, 2000)
 
-        const posts: Post[] = (() => {
-            const newPostDivs = Array.from(document.querySelectorAll<HTMLDivElement>('div.post'))
-            if (newPostDivs.length !== 0) {
-                const newPosts: Post[] = newPostDivs.map(newPostDiv => {
-                    const br = newPostDiv.nextElementSibling as HTMLElement
-                    return new NewPost(
-                        new FakeDiv(newPostDiv, br),
-                        Array.from(newPostDiv.querySelectorAll<HTMLAnchorElement>('span.escaped a'))
-                    )
+        const finalCallback = (posts: Post[]) => {
+            const mostFrequentName = Post.getMostFrequentName(posts)
+            posts.forEach(post => {
+                const isSbiPhone = post.isp === '(SB-iPhone)'
+                let observedDiv: HTMLDivElement & { imgs: HTMLImageElement[], post: Post, count: number, containsBlockedImage: boolean }
+                let forceHidden = false
+                if (!post.container.isHidden && settings.isSB && isSbiPhone) {
+                    if (!settings.isVisible || post.name !== mostFrequentName) {
+                        post.container.hide()
+                        forceHidden = true
+                    }
+                    if (post.urls.length > 0) {
+                        post.container.hide()
+                    }
+                }
+                if (!post.container.isHidden && settings.isBlocked) {
+                    if (Array.from(settings.blacklist).some(word => post.comment.includes(word))) {
+                        post.container.hide()
+                        forceHidden = true
+                    }
+                }
+                post.urls.forEach(url => {
+                    const matchResult = url.href.match(/^.+?\/\?./)
+                    if (matchResult) {
+                        url.href = url.innerText
+                    }
+                    if (settings.isEmbedded && url.innerText.match(/twitter\.com\/.+?\/status\/./)) {
+                        GM_xmlhttpRequest({
+                            method: 'GET',
+                            url: `https://publish.twitter.com/oembed?url=${url.innerText}&omit_script=true`,
+                            onload: (response: XMLHttpRequest) => {
+                                const tweet = createTweet(response.responseText)
+                                if (!tweet) { return }
+                                insertAfter(url, tweet)
+                                if (tweet.nextElementSibling && tweet.nextElementSibling.tagName === 'BR') {
+                                    tweet.nextElementSibling.remove()
+                                }
+                                (function retry(count=0) {
+                                    if (count === 3) { return }
+                                    if (twttr.widgets && twttr.widgets.load) {
+                                        twttr.widgets.load(tweet)
+                                    } else {
+                                        setTimeout(retry, 5000, count + 1)
+                                    }
+                                })()
+                            }
+                        })
+                    }
+                    if (settings.isVisible && url.innerText.match(/jpg|jpeg|gif|png|bmp/)) {
+                        const img = appendImageAfter(url)
+                        modal.imgs.map.set(img, modal.imgs.array.length)
+                        modal.imgs.array.push(img)
+                        if (settings.isSB && img.dataset.src!.match(/^https?:\/\/(i\.)?imgur/) && img.dataset.src!.endsWith('jpg')) {
+                            const space = document.createTextNode('\xa0\xa0')
+                            const blockButton = document.createElement('a')
+                            blockButton.innerText = 'ブロック'
+                            blockButton.href = 'javascript:void(0)'
+                            blockButton.addEventListener('click', () => {
+                                post.container.hide()
+                                if (img.src === '') {
+                                    img.src = img.dataset.src!
+                                    imgObserver.unobserve(img)
+                                }
+                                if (img.complete) {
+                                    fetchAndHashImage(img.dataset.src!, (hash) => {
+                                        settings.sblist.add(hash)
+                                        settings.save()
+                                    })
+                                } else {
+                                    img.addEventListener('load', () => {
+                                        fetchAndHashImage(img.dataset.src!, (hash) => {
+                                            settings.sblist.add(hash)
+                                            settings.save()
+                                        })
+                                    })
+                                }
+                            })
+                            insertAfter(url, space)
+                            insertAfter(space, blockButton)
+                            if (isSbiPhone) {
+                                if (!observedDiv) {
+                                    const currentDiv = post.container.elements[0]
+                                    observedDiv = document.createElement('div') as any
+                                    observedDiv.imgs = []
+                                    observedDiv.post = post;
+                                    observedDiv.count = 0
+                                    currentDiv.parentElement!.insertBefore(observedDiv, currentDiv)
+                                    divObserver.observe(observedDiv)
+                                }
+                                observedDiv.imgs.push(img)
+                                img.addEventListener('load', () => {
+                                    if (observedDiv.containsBlockedImage) { return }
+                                    fetchAndHashImage(img.dataset.src!, (hash) => {
+                                        observedDiv.count++
+                                        if (settings.sblist.has(hash)) {
+                                            observedDiv.containsBlockedImage = true
+                                        }
+                                        if (observedDiv.count === observedDiv.imgs.length && !observedDiv.containsBlockedImage && !forceHidden) {
+                                            observedDiv.post.container.show()
+                                        }
+                                    })
+                                })
+                            } else {
+                                img.addEventListener('load', () => {
+                                    if (post.container.isHidden) { return }
+                                    fetchAndHashImage(img.dataset.src!, (hash) => {
+                                        if (settings.sblist.has(hash)) {
+                                            post.container.hide()
+                                        }
+                                    })
+                                })
+                            }
+                        }
+                    }
                 })
-                return newPosts
-            }
+            })
+        }
+
+        const newPostDivs = document.querySelectorAll<HTMLDivElement>('div.post')
+        if (newPostDivs.length !== 0) {
+            const newPosts: Post[] = Array.from(newPostDivs).map(newPostDiv => {
+                const br = newPostDiv.nextElementSibling as HTMLElement
+                return new NewPost(
+                    new FakeDiv(newPostDiv, br),
+                    Array.from(newPostDiv.querySelectorAll<HTMLAnchorElement>('span.escaped a'))
+                )
+            })
+            finalCallback(newPosts)
+        } else {
             const oldPostTitles = Array.from(document.querySelectorAll<HTMLElement>('dl.thread > dt'))
             const oldPosts: Post[] = oldPostTitles
                 .filter(oldPostTitles => oldPostTitles.nextElementSibling !== null)
@@ -791,123 +910,7 @@
                         Array.from(oldPostContent.querySelectorAll('a'))
                     )
                 })
-            return oldPosts
-        })()
-
-        const mostFrequentName = Post.getMostFrequentName(posts)
-        posts.forEach(post => {
-            const isSbiPhone = post.isp === '(SB-iPhone)'
-            let observedDiv: HTMLDivElement & { imgs: HTMLImageElement[], post: Post, count: number, containsBlockedImage: boolean }
-            let forceHidden = false
-            if (!post.container.isHidden && settings.isSB && isSbiPhone) {
-                if (!settings.isVisible || post.name !== mostFrequentName) {
-                    post.container.hide()
-                    forceHidden = true
-                }
-                if (post.urls.length > 0) {
-                    post.container.hide()
-                }
-            }
-            if (!post.container.isHidden && settings.isBlocked) {
-                if (Array.from(settings.blacklist).some(word => post.comment.includes(word))) {
-                    post.container.hide()
-                    forceHidden = true
-                }
-            }
-            post.urls.forEach(url => {
-                const matchResult = url.href.match(/^.+?\/\?./)
-                if (matchResult) {
-                    url.href = url.innerText
-                }
-                if (settings.isEmbedded && url.innerText.match(/twitter\.com\/.+?\/status\/./)) {
-                    GM_xmlhttpRequest({
-                        method: 'GET',
-                        url: `https://publish.twitter.com/oembed?url=${url.innerText}&omit_script=true`,
-                        onload: (response: XMLHttpRequest) => {
-                            const tweet = createTweet(response.responseText)
-                            if (!tweet) { return }
-                            insertAfter(url, tweet)
-                            if (tweet.nextElementSibling && tweet.nextElementSibling.tagName === 'BR') {
-                                tweet.nextElementSibling.remove()
-                            }
-                            (function retry(count=0) {
-                                if (count === 3) { return }
-                                if (twttr.widgets && twttr.widgets.load) {
-                                    twttr.widgets.load(tweet)
-                                } else {
-                                    setTimeout(retry, 5000, count + 1)
-                                }
-                            })()
-                        }
-                    })
-                }
-                if (settings.isVisible && url.innerText.match(/jpg|jpeg|gif|png|bmp/)) {
-                    const img = appendImageAfter(url)
-                    modal.imgs.map.set(img, modal.imgs.array.length)
-                    modal.imgs.array.push(img)
-                    if (settings.isSB && img.dataset.src!.match(/^https?:\/\/(i\.)?imgur/) && img.dataset.src!.endsWith('jpg')) {
-                        const space = document.createTextNode('\xa0\xa0')
-                        const blockButton = document.createElement('a')
-                        blockButton.innerText = 'ブロック'
-                        blockButton.href = 'javascript:void(0)'
-                        blockButton.addEventListener('click', () => {
-                            post.container.hide()
-                            if (img.src === '') {
-                                img.src = img.dataset.src!
-                                imgObserver.unobserve(img)
-                            }
-                            if (img.complete) {
-                                fetchAndHashImage(img.dataset.src!, (hash) => {
-                                    settings.sblist.add(hash)
-                                    settings.save()
-                                })
-                            } else {
-                                img.addEventListener('load', () => {
-                                    fetchAndHashImage(img.dataset.src!, (hash) => {
-                                        settings.sblist.add(hash)
-                                        settings.save()
-                                    })
-                                })
-                            }
-                        })
-                        insertAfter(url, space)
-                        insertAfter(space, blockButton)
-                        if (isSbiPhone) {
-                            if (!observedDiv) {
-                                const currentDiv = post.container.elements[0]
-                                observedDiv = document.createElement('div') as any
-                                observedDiv.imgs = []
-                                observedDiv.post = post;
-                                observedDiv.count = 0
-                                currentDiv.parentElement!.insertBefore(observedDiv, currentDiv)
-                                divObserver.observe(observedDiv)
-                            }
-                            observedDiv.imgs.push(img)
-                            img.addEventListener('load', () => {
-                                if (observedDiv.containsBlockedImage) { return }
-                                fetchAndHashImage(img.dataset.src!, (hash) => {
-                                    observedDiv.count++
-                                    if (settings.sblist.has(hash)) {
-                                        observedDiv.containsBlockedImage = true
-                                    }
-                                    if (observedDiv.count === observedDiv.imgs.length && !observedDiv.containsBlockedImage && !forceHidden) {
-                                        observedDiv.post.container.show()
-                                    }
-                                })
-                            })
-                        } else {
-                            img.addEventListener('load', () => {
-                                if (post.container.isHidden) { return }
-                                fetchAndHashImage(img.dataset.src!, (hash) => {
-                                    if (settings.sblist.has(hash)) {
-                                        post.container.hide()
-                                    }
-                                })
-                            })
-                        }
-                    }
-                }
-            })
-        })
+            setTimeout(finalCallback, 1000, oldPosts)
+        }
     })
 })()
