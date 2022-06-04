@@ -130,8 +130,8 @@
             if (init.onclick) {
                 this.checkbox.addEventListener('click', init.onclick);
             }
-            this.onconfirm = init.onconfirm;
-            this.oncancel = init.oncancel;
+            this.onsave = init.onsave;
+            this.onsavecancelled = init.onsavecancelled;
             this.div.insertBefore(this.checkbox, this.div.childNodes[0]);
         }
         static insert(...options) {
@@ -173,7 +173,7 @@
         }
     }
     class PopupWindow {
-        constructor(openButton, set, onconfirm, oncancel) {
+        constructor(openButton, set, onsave, onsavecancelled) {
             this.container = document.createElement('div');
             this.container.style.display = 'none';
             this.container.style.position = 'fixed';
@@ -209,8 +209,8 @@
             this.textarea.style.resize = 'none';
             this.textarea.value = Array.from(set).join('\n');
             this.dialog.appendChild(this.textarea);
-            this.onconfirm = onconfirm;
-            this.oncancel = oncancel;
+            this.onsave = onsave;
+            this.onsavecancelled = onsavecancelled;
         }
     }
     class FakeDiv {
@@ -588,25 +588,25 @@
             insertAfter(element, fragment);
             return img;
         };
-        let menuState = 1 /* NOT_CREATED */;
+        let menuState = 1 /* MenuState.NOT_CREATED */;
         const createMenu = () => {
             if (!window.location.pathname.includes('read.cgi')) {
-                menuState = 2 /* NOT_APPLICABLE */;
+                menuState = 2 /* MenuState.NOT_APPLICABLE */;
                 return;
             }
             if (!MenuOption.init(document.querySelector('div.option_style_8'))) {
-                menuState = 1 /* NOT_CREATED */;
+                menuState = 1 /* MenuState.NOT_CREATED */;
                 return;
             }
-            menuState = 0 /* CREATED */;
+            menuState = 0 /* MenuState.CREATED */;
             const thumbnailOption = new MenuOption({
                 text: 'サムネイル画像を表示する',
                 checked: settings.isVisible,
                 onclick: MenuOption.toggleDisable,
-                onconfirm: () => {
+                onsave: () => {
                     settings.isVisible = thumbnailOption.checkbox.checked;
                 },
-                oncancel: () => {
+                onsavecancelled: () => {
                     thumbnailOption.checkbox.checked = settings.isVisible;
                     MenuOption.toggleDisable.call(thumbnailOption.checkbox);
                 }
@@ -614,10 +614,10 @@
             const dragOption = new MenuOption({
                 text: 'ドラッグで画像を移動する',
                 checked: settings.isDraggable,
-                onconfirm: () => {
+                onsave: () => {
                     settings.isDraggable = dragOption.checkbox.checked;
                 },
-                oncancel: () => {
+                onsavecancelled: () => {
                     dragOption.checkbox.checked = settings.isDraggable;
                 }
             });
@@ -626,10 +626,10 @@
             const embedOption = new MenuOption({
                 text: 'ツイートを埋め込む',
                 checked: settings.isEmbedded,
-                onconfirm: () => {
+                onsave: () => {
                     settings.isEmbedded = embedOption.checkbox.checked;
                 },
-                oncancel: () => {
+                onsavecancelled: () => {
                     embedOption.checkbox.checked = settings.isEmbedded;
                 }
             });
@@ -637,10 +637,10 @@
                 text: 'NGワード',
                 checked: settings.isBlocked,
                 onclick: MenuOption.toggleDisable,
-                onconfirm: () => {
+                onsave: () => {
                     settings.isBlocked = blockOption.checkbox.checked;
                 },
-                oncancel: () => {
+                onsavecancelled: () => {
                     blockOption.checkbox.checked = settings.isBlocked;
                     MenuOption.toggleDisable.call(blockOption.checkbox);
                 }
@@ -657,10 +657,10 @@
                 text: 'SB-iPhone特殊対策',
                 checked: settings.isSB,
                 onclick: MenuOption.toggleDisable,
-                onconfirm: () => {
+                onsave: () => {
                     settings.isSB = sbiPhoneOption.checkbox.checked;
                 },
-                oncancel: () => {
+                onsavecancelled: () => {
                     sbiPhoneOption.checkbox.checked = settings.isSB;
                     MenuOption.toggleDisable.call(sbiPhoneOption.checkbox);
                 }
@@ -686,14 +686,14 @@
             MenuOption.insert(thumbnailOption, dragOption, embedOption, blockOption, sbiPhoneOption);
             const saveButton = document.getElementById('saveOptions');
             saveButton === null || saveButton === void 0 ? void 0 : saveButton.addEventListener('click', () => {
-                thumbnailOption.onconfirm();
-                dragOption.onconfirm();
-                embedOption.onconfirm();
+                thumbnailOption.onsave();
+                dragOption.onsave();
+                embedOption.onsave();
                 modal.img.draggable = !settings.isDraggable;
-                blockOption.onconfirm();
-                blockOptionPopupWindow.onconfirm();
-                sbiPhoneOption.onconfirm();
-                sbiPhoneOptionPopupWindow.onconfirm();
+                blockOption.onsave();
+                blockOptionPopupWindow.onsave();
+                sbiPhoneOption.onsave();
+                sbiPhoneOptionPopupWindow.onsave();
                 settings.save();
             });
             const cancels = [
@@ -701,16 +701,16 @@
                 document.getElementById('close_options'),
                 document.querySelector('div.option_container_bg')
             ];
-            const oncancel = () => {
-                thumbnailOption.oncancel();
-                dragOption.oncancel();
-                embedOption.oncancel();
-                blockOption.oncancel();
-                blockOptionPopupWindow.oncancel();
-                sbiPhoneOption.oncancel();
-                sbiPhoneOptionPopupWindow.oncancel();
+            const onsavecancelled = () => {
+                thumbnailOption.onsavecancelled();
+                dragOption.onsavecancelled();
+                embedOption.onsavecancelled();
+                blockOption.onsavecancelled();
+                blockOptionPopupWindow.onsavecancelled();
+                sbiPhoneOption.onsavecancelled();
+                sbiPhoneOptionPopupWindow.onsavecancelled();
             };
-            cancels.forEach(cancel => cancel === null || cancel === void 0 ? void 0 : cancel.addEventListener('click', oncancel));
+            cancels.forEach(cancel => cancel === null || cancel === void 0 ? void 0 : cancel.addEventListener('click', onsavecancelled));
         };
         setTimeout(createMenu, 2000);
         const finalCallback = (posts) => {

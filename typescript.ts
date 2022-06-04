@@ -23,16 +23,16 @@
 // @connect      imgur.com
 // ==/UserScript==
 
+declare function GM_xmlhttpRequest(details: any): void
+declare function GM_setValue(name: string, value: any): void
+declare function GM_getValue(name: string, defaultValue?: any): any
+declare const BlockHash: {
+    blockhash: (img: ArrayBuffer, bit: number, type: number, callback: (err: any, hash: string) => void) => void
+}
+declare let unsafeWindow: any
+
 (function () {
     "use strict"
-    function GM_xmlhttpRequest(object: object) { }
-    function GM_setValue(string: string, object: object) { }
-    function GM_getValue(string: string, object?: object): any { }
-    const BlockHash = {
-        blockhash: (img: ArrayBuffer, bit: number, type: number, callback: (err: any, hash: string) => void) => { }
-    }
-    let unsafeWindow: any
-
     function insertAfter(first: Node, after: Node) {
         first.parentNode?.insertBefore(after, first.nextSibling)
     }
@@ -124,8 +124,8 @@
         text?: string
         checked?: boolean
         onclick?: () => void
-        onconfirm: () => void
-        oncancel: () => void
+        onsave: () => void
+        onsavecancelled: () => void
     }
 
     class MenuOption {
@@ -133,8 +133,8 @@
 
         div: HTMLDivElement
         checkbox: HTMLInputElement
-        onconfirm: () => void
-        oncancel: () => void
+        onsave: () => void
+        onsavecancelled: () => void
 
         constructor(init: MenuOptionInit) {
             this.div = document.createElement('div')
@@ -147,8 +147,8 @@
             if (init.onclick) {
                 this.checkbox.addEventListener('click', init.onclick)
             }
-            this.onconfirm = init.onconfirm
-            this.oncancel = init.oncancel
+            this.onsave = init.onsave
+            this.onsavecancelled = init.onsavecancelled
             this.div.insertBefore(this.checkbox, this.div.childNodes[0])
         }
 
@@ -201,10 +201,10 @@
         container: HTMLDivElement
         dialog: HTMLDivElement
         textarea: HTMLTextAreaElement
-        onconfirm: () => void
-        oncancel: () => void
+        onsave: () => void
+        onsavecancelled: () => void
 
-        constructor(openButton: HTMLButtonElement, set: Set<string>, onconfirm: () => void, oncancel: () => void) {
+        constructor(openButton: HTMLButtonElement, set: Set<string>, onsave: () => void, onsavecancelled: () => void) {
             this.container = document.createElement('div')
             this.container.style.display = 'none'
             this.container.style.position = 'fixed'
@@ -240,8 +240,8 @@
             this.textarea.style.resize = 'none'
             this.textarea.value = Array.from(set).join('\n')
             this.dialog.appendChild(this.textarea)
-            this.onconfirm = onconfirm
-            this.oncancel = oncancel
+            this.onsave = onsave
+            this.onsavecancelled = onsavecancelled
         }
     }
 
@@ -651,10 +651,10 @@
                 text: 'サムネイル画像を表示する',
                 checked: settings.isVisible,
                 onclick: MenuOption.toggleDisable,
-                onconfirm: () => {
+                onsave: () => {
                     settings.isVisible = thumbnailOption.checkbox.checked
                 },
-                oncancel: () => {
+                onsavecancelled: () => {
                     thumbnailOption.checkbox.checked = settings.isVisible
                     MenuOption.toggleDisable.call(thumbnailOption.checkbox as any)
                 }
@@ -662,10 +662,10 @@
             const dragOption = new MenuOption({
                 text: 'ドラッグで画像を移動する',
                 checked: settings.isDraggable,
-                onconfirm: () => {
+                onsave: () => {
                     settings.isDraggable = dragOption.checkbox.checked
                 },
-                oncancel: () => {
+                onsavecancelled: () => {
                     dragOption.checkbox.checked = settings.isDraggable
                 }
             })
@@ -674,10 +674,10 @@
             const embedOption = new MenuOption({
                 text: 'ツイートを埋め込む',
                 checked: settings.isEmbedded,
-                onconfirm: () => {
+                onsave: () => {
                     settings.isEmbedded = embedOption.checkbox.checked
                 },
-                oncancel: () => {
+                onsavecancelled: () => {
                     embedOption.checkbox.checked = settings.isEmbedded
                 }
             })
@@ -685,10 +685,10 @@
                 text: 'NGワード',
                 checked: settings.isBlocked,
                 onclick: MenuOption.toggleDisable,
-                onconfirm: () => {
+                onsave: () => {
                     settings.isBlocked = blockOption.checkbox.checked
                 },
-                oncancel: () => {
+                onsavecancelled: () => {
                     blockOption.checkbox.checked = settings.isBlocked
                     MenuOption.toggleDisable.call(blockOption.checkbox as any)
                 }
@@ -709,10 +709,10 @@
                 text: 'SB-iPhone特殊対策',
                 checked: settings.isSB,
                 onclick: MenuOption.toggleDisable,
-                onconfirm: () => {
+                onsave: () => {
                     settings.isSB = sbiPhoneOption.checkbox.checked
                 },
-                oncancel: () => {
+                onsavecancelled: () => {
                     sbiPhoneOption.checkbox.checked = settings.isSB
                     MenuOption.toggleDisable.call(sbiPhoneOption.checkbox as any)
                 }
@@ -743,14 +743,14 @@
 
             const saveButton = document.getElementById('saveOptions')
             saveButton?.addEventListener('click', () => {
-                thumbnailOption.onconfirm()
-                dragOption.onconfirm()
-                embedOption.onconfirm()
+                thumbnailOption.onsave()
+                dragOption.onsave()
+                embedOption.onsave()
                 modal.img.draggable = !settings.isDraggable
-                blockOption.onconfirm()
-                blockOptionPopupWindow.onconfirm()
-                sbiPhoneOption.onconfirm()
-                sbiPhoneOptionPopupWindow.onconfirm()
+                blockOption.onsave()
+                blockOptionPopupWindow.onsave()
+                sbiPhoneOption.onsave()
+                sbiPhoneOptionPopupWindow.onsave()
                 settings.save()
             })
             const cancels = [
@@ -758,16 +758,16 @@
                 document.getElementById('close_options'),
                 document.querySelector('div.option_container_bg')
             ]
-            const oncancel = () => {
-                thumbnailOption.oncancel()
-                dragOption.oncancel()
-                embedOption.oncancel()
-                blockOption.oncancel()
-                blockOptionPopupWindow.oncancel()
-                sbiPhoneOption.oncancel()
-                sbiPhoneOptionPopupWindow.oncancel()
+            const onsavecancelled = () => {
+                thumbnailOption.onsavecancelled()
+                dragOption.onsavecancelled()
+                embedOption.onsavecancelled()
+                blockOption.onsavecancelled()
+                blockOptionPopupWindow.onsavecancelled()
+                sbiPhoneOption.onsavecancelled()
+                sbiPhoneOptionPopupWindow.onsavecancelled()
             }
-            cancels.forEach(cancel => cancel?.addEventListener('click', oncancel))
+            cancels.forEach(cancel => cancel?.addEventListener('click', onsavecancelled))
         }
         setTimeout(createMenu, 2000)
 
