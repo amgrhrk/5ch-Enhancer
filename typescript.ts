@@ -23,7 +23,7 @@
 // @connect      imgur.com
 // ==/UserScript==
 
-declare function GM_xmlhttpRequest(details: any): void
+declare function GM_xmlhttpRequest(details: object): void
 declare function GM_setValue(name: string, value: any): void
 declare function GM_getValue(name: string, defaultValue?: any): any
 declare const BlockHash: {
@@ -315,6 +315,7 @@ declare let unsafeWindow: any
         abstract get id(): string
         abstract get isp(): string
         abstract get comment(): string
+        abstract isProbably(name: string): boolean
 
         constructor(container: FakeDiv, urls: HTMLAnchorElement[]) {
             this.container = container
@@ -360,6 +361,11 @@ declare let unsafeWindow: any
         get comment() {
             return (this.container.elements[0].lastElementChild!.firstElementChild! as HTMLElement).innerText
         }
+
+        isProbably(name: string) {
+            const fullNameNode = this.container.elements[0].firstElementChild!.children[1] as HTMLElement
+            return fullNameNode.innerText.includes(name)
+        }
     }
     class OldPost extends Post {
         constructor(container: FakeDiv, urls: HTMLAnchorElement[]) {
@@ -383,6 +389,11 @@ declare let unsafeWindow: any
 
         get comment() {
             return this.container.elements[1].innerText
+        }
+
+        isProbably(name: string) {
+            const fullNameNode = this.container.elements[0].firstElementChild! as HTMLElement
+            return fullNameNode.innerText.includes(name)
         }
     }
 
@@ -706,7 +717,7 @@ declare let unsafeWindow: any
                 }
             )
             const sbiPhoneOption = new MenuOptionWithButton({
-                text: 'SB-iPhone特殊対策',
+                text: 'SB-iPhone、らふたんなど特殊対策',
                 checked: settings.isSB,
                 onclick: MenuOption.toggleDisable,
                 onsave: () => {
@@ -774,16 +785,22 @@ declare let unsafeWindow: any
         const finalCallback = (posts: Post[]) => {
             const mostFrequentName = Post.getMostFrequentName(posts)
             posts.forEach(post => {
-                const isSbiPhone = post.isp === '(SB-iPhone)'
+                // const isSbiPhone = post.isp === '(SB-iPhone)'
+                const isSbiPhone = post.isProbably('SB-iPhone')
+                const isTroll = post.isProbably('◆')
                 let observedDiv: HTMLDivElement & { imgs: HTMLImageElement[], post: Post, count: number, containsBlockedImage: boolean }
                 let forceHidden = false
-                if (!post.container.isHidden && settings.isSB && isSbiPhone) {
-                    if (!settings.isVisible || post.name !== mostFrequentName) {
+                if (!post.container.isHidden && settings.isSB) {
+                    if (isTroll) {
                         post.container.hide()
                         forceHidden = true
-                    }
-                    if (post.urls.length > 0) {
-                        post.container.hide()
+                    } else if (isSbiPhone) {
+                        if (!settings.isVisible || post.name !== mostFrequentName) {
+                            post.container.hide()
+                            forceHidden = true
+                        } else if (post.urls.length > 0) {
+                            post.container.hide()
+                        }
                     }
                 }
                 if (!post.container.isHidden && settings.isBlocked) {

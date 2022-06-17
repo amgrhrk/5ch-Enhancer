@@ -307,6 +307,10 @@
         get comment() {
             return this.container.elements[0].lastElementChild.firstElementChild.innerText;
         }
+        isProbably(name) {
+            const fullNameNode = this.container.elements[0].firstElementChild.children[1];
+            return fullNameNode.innerText.includes(name);
+        }
     }
     class OldPost extends Post {
         constructor(container, urls) {
@@ -328,6 +332,10 @@
         }
         get comment() {
             return this.container.elements[1].innerText;
+        }
+        isProbably(name) {
+            const fullNameNode = this.container.elements[0].firstElementChild;
+            return fullNameNode.innerText.includes(name);
         }
     }
     const settings = (() => {
@@ -654,7 +662,7 @@
                 blockOptionPopupWindow.textarea.value = Array.from(settings.blacklist).join('\n');
             });
             const sbiPhoneOption = new MenuOptionWithButton({
-                text: 'SB-iPhone特殊対策',
+                text: 'SB-iPhone、らふたんなど特殊対策',
                 checked: settings.isSB,
                 onclick: MenuOption.toggleDisable,
                 onsave: () => {
@@ -716,16 +724,24 @@
         const finalCallback = (posts) => {
             const mostFrequentName = Post.getMostFrequentName(posts);
             posts.forEach(post => {
-                const isSbiPhone = post.isp === '(SB-iPhone)';
+                // const isSbiPhone = post.isp === '(SB-iPhone)'
+                const isSbiPhone = post.isProbably('SB-iPhone');
+                const isTroll = post.isProbably('◆');
                 let observedDiv;
                 let forceHidden = false;
-                if (!post.container.isHidden && settings.isSB && isSbiPhone) {
-                    if (!settings.isVisible || post.name !== mostFrequentName) {
+                if (!post.container.isHidden && settings.isSB) {
+                    if (isTroll) {
                         post.container.hide();
                         forceHidden = true;
                     }
-                    if (post.urls.length > 0) {
-                        post.container.hide();
+                    else if (isSbiPhone) {
+                        if (!settings.isVisible || post.name !== mostFrequentName) {
+                            post.container.hide();
+                            forceHidden = true;
+                        }
+                        else if (post.urls.length > 0) {
+                            post.container.hide();
+                        }
                     }
                 }
                 if (!post.container.isHidden && settings.isBlocked) {
