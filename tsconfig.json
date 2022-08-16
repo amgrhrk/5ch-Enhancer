@@ -1,0 +1,9 @@
+{
+	"compilerOptions": {
+		"target": "ES6",
+		"strict": true,
+		"alwaysStrict": false,
+		"outFile": "5ch Enhancer.user.js",
+	},
+	"include": ["typescript.ts"]
+}
