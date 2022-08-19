@@ -50,10 +50,9 @@
             return `${url}name=orig`;
         }
         const suffixes = ['large', 'medium', 'small', '900x900', 'thumb'];
-        for (const suffix of suffixes) {
-            if (url.endsWith(suffix)) {
-                return `${url.substring(0, url.length - suffix.length)}orig`;
-            }
+        const suffix = suffixes.find(suffix => url.endsWith(suffix));
+        if (suffix) {
+            return `${url.substring(0, url.length - suffix.length)}orig`;
         }
         return url;
     }
@@ -387,23 +386,20 @@
     const imgObserver = new IntersectionObserver(entries => {
         entries.forEach(entry => {
             const target = entry.target;
-            // if (entry.isIntersecting && !target.isWaiting) {
-            //     target.isWaiting = true
-            //     setTimeout(() => {
-            //         if (entry.isIntersecting) {
-            //             target.src = target.dataset.src!
-            //             imgObserver.unobserve(target)
-            //         } else {
-            //             target.isWaiting = false
-            //         }
-            //     }, 1000)
-            // }
-            if (entry.isIntersecting) {
-                target.src = target.dataset.src;
-                imgObserver.unobserve(target);
+            if (!target.isWaiting && entry.isIntersecting) {
+                target.isWaiting = true;
+                setTimeout(() => {
+                    if (entry.isIntersecting) {
+                        target.src = target.dataset.src;
+                        imgObserver.unobserve(target);
+                    }
+                    else {
+                        target.isWaiting = false;
+                    }
+                }, 800);
             }
         });
-    }, { rootMargin: `${window.innerHeight}px` });
+    }, { rootMargin: '100%' });
     const divObserver = new IntersectionObserver(entries => {
         entries.forEach(entry => {
             const target = entry.target;
@@ -556,7 +552,6 @@
             const img = document.createElement('img');
             img.dataset.src = trimTwitterImageUrl(element.innerText);
             img.style.maxWidth = '800px';
-            img.src = img.dataset.src;
             img.addEventListener('click', imgOnclick);
             imgObserver.observe(img);
             fragment.appendChild(img);
@@ -734,14 +729,7 @@
                                 if (tweet.nextElementSibling && tweet.nextElementSibling.tagName === 'BR') {
                                     tweet.nextElementSibling.remove();
                                 }
-                                // (function retry(count=0) {
-                                //     if (count === 3) { return }
-                                //     if (twttr.widgets && twttr.widgets.load) {
-                                //         twttr.widgets.load(tweet)
-                                //     } else {
-                                //         setTimeout(retry, 5000, count + 1)
-                                //     }
-                                // })()
+                                twttr.widgets.load(tweet);
                             }
                         });
                     }
