@@ -3,7 +3,7 @@
 		"target": "ES2019",
 		"strict": true,
 		"alwaysStrict": false,
-		"outFile": "test.js",
+		"outFile": "5ch-Enhancer.user.js",
 	},
 	"files": [
 		"src/meta.ts",

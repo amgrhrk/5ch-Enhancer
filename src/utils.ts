@@ -358,7 +358,7 @@ class Config {
 	constructor() {
 		const config = (GM_getValue(scriptName) || {}) as GMConfig
 		for (const field of Config.booleanFields) {
-			this[field] = config[field] === true ? true : false
+			this[field] = config[field] === false ? false : true
 		}
 		for (const field of Config.setFields) {
 			this[field] = config[field] ? new Set(config[field]) : new Set()
@@ -484,6 +484,7 @@ abstract class MenuItem {
 			}
 			const textArea = document.createElement('textarea') as NonNullable<MenuItem['textArea']>
 			textArea.key = this._textArea.key
+			textArea.classList.add('vch-enhancer-hide')
 			item.textArea = textArea
 			return textArea
 		}
@@ -517,6 +518,12 @@ abstract class MenuItem {
 }
 
 namespace Menu {
+	export function retry(config: Config, count: number) {
+		if (count < 3 && !create(config)) {
+			setTimeout(retry, 1000, config, count + 1)
+		}
+	}
+
 	export function create(config: Config) {
 		const vanillaItem = document.querySelector('.option_style_8')
 		if (!vanillaItem) {
@@ -531,7 +538,7 @@ namespace Menu {
 			MenuItem.builder().checkbox('blockUsers')
 				.text('NGユーザー').button('設定').textArea('blockedUsers').build(),
 			MenuItem.builder().checkbox('blockWords')
-				.text('NGワード').textArea('blockedWords').build(),
+				.text('NGワード').button('設定').textArea('blockedWords').build(),
 			MenuItem.builder().checkbox('blockImages')
 				.text('NG画像').button('設定').textArea('blockedImages').build()
 		]
@@ -539,15 +546,26 @@ namespace Menu {
 		MenuItem.Builder.disableOthersWhenUnchecked(items[2], items[2].button!)
 		MenuItem.Builder.disableOthersWhenUnchecked(items[3], items[3].button!)
 		MenuItem.Builder.disableOthersWhenUnchecked(items[4], items[4].button!)
+		items.forEach(item => item.checkbox!.checked = config[item.checkbox!.key] as boolean)
 
 		const popup = new Popup()
 		popup.current = items[2].textArea!
 		const itemsWithTextArea = [items[2], items[3], items[4]]
+		for (const item of itemsWithTextArea) {
+			item.textArea!.value = [...config[item.textArea!.key] as Set<string>].join('\n')
+			popup.window.appendChild(item.textArea!)
+			item.button!.addEventListener('click', () => {
+				popup.show(item)
+			})
+		}
 		const confirmButton = document.getElementById('saveOptions')
 		confirmButton?.addEventListener('click', () => {
 			for (const item of itemsWithTextArea) {
-				(config[item.textArea!.key] as Set<string>) = new Set(item.textArea!.value.split('\n'))
+				const values = new Set(item.textArea!.value.split('\n'))
+				values.delete('')
+				;(config[item.textArea!.key] as Set<string>) = values
 			}
+			config.save()
 		})
 		const cancelButtons = [
 			document.getElementById('cancelOptions'),

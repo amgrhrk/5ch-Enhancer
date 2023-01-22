@@ -5,10 +5,6 @@ if (config.embedTweets) {
 	Twitter.init()
 }
 
-const modal = config.embedThumbnails
-	? new Modal()
-	: null
-
 const hash = config.embedThumbnails
 	? new Images.Hash(GM_getResourceURL('hash'))
 	: null
@@ -30,6 +26,10 @@ remover.observe(document, { childList: true, subtree: true })
 document.addEventListener('DOMContentLoaded', () => {
 	remover.disconnect()
 
+	const modal = config.embedThumbnails
+		? new Modal()
+		: null
+
 	const scrollButton = document.createElement('button')
 	scrollButton.innerText = '🔼'
 	scrollButton.draggable = false
@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			title.rel = 'noopener noreferrer'
 		}
 	} else {
-		setTimeout(Menu.create, 2000, config)
+		setTimeout(Menu.retry, 1000, config, 0)
 	}
 
 	const posts: Post[] = threads
