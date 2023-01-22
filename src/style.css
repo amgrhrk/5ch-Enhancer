@@ -1,0 +1,83 @@
+.vch-enhancer-hide {
+	display: none !important;
+}
+
+.vch-enhancer-overflow-hidden {
+	overflow: hidden !important;
+}
+
+.vch-enhancer-modal {
+	display: flex;
+	position: fixed;
+	width: 100%;
+	height: 100%;
+	top: 0;
+	left: 0;
+	margin: 0;
+	border: 0;
+	padding: 0;
+	z-index: 2;
+	user-select: none;
+	overflow: auto;
+}
+
+.vch-enhancer-modal img {
+	margin: auto;
+}
+
+.vch-enhancer-post-img {
+	max-width: 800px;
+}
+
+.vch-enhancer-scroll-button {
+	font-size: 50px;
+	position: fixed;
+	bottom: 5%;
+	right: 4%;
+	z-index: 2;
+	user-select: none;
+}
+
+.vch-enhancer-scroll-button:hover {
+	filter: brightness(0.8);
+}
+
+.vch-enhancer-scroll-button:active {
+	filter: brightness(0.6);
+}
+
+.vch-enhancer-menu-item {
+	margin-bottom: 10px;
+}
+
+.vch-enhancer-menu-item > button {
+	margin-left: 4px;
+}
+
+.vch-enhancer-popup-background {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 14;
+	overflow: auto;
+}
+
+.vch-enhancer-popup-window {
+	position: relative;
+	margin: auto;
+	top: 15%;
+	width: 400px;
+	height: 500px;
+	padding: 20px;
+	background-color: white;
+	overflow: hidden;
+}
+
+.vch-enhancer-popup-window > textarea {
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	resize: none;
+}

@@ -1,9 +1,14 @@
 {
 	"compilerOptions": {
-		"target": "ES6",
+		"target": "ES2019",
 		"strict": true,
 		"alwaysStrict": false,
-		"outFile": "5ch Enhancer.user.js",
+		"outFile": "test.js",
 	},
-	"include": ["typescript.ts"]
+	"files": [
+		"src/meta.ts",
+		"src/modal/modal.ts",
+		"src/utils.ts",
+		"src/index.ts"
+	]
 }
