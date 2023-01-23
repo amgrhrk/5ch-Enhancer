@@ -44,7 +44,7 @@ namespace Twitter {
 		if (url.endsWith('&')) {
 			return `${url}name=orig`
 		}
-		const suffixes = ['large', 'medium', 'small', '900x900', 'thumb']
+		const suffixes = ['large', 'medium', 'small', '900x900', 'thumb'] as const
 		const suffix = suffixes.find(suffix => url.endsWith(suffix))
 		if (suffix) {
 			return `${url.substring(0, url.length - suffix.length)}orig`
@@ -104,13 +104,14 @@ namespace Images {
 		if (!formatMatch) {
 			return null
 		}
-		const fragment = document.createDocumentFragment()
+		const fragment = document.createDocumentFragment() as DocumentFragment & { image: typeof post.images[number] }
 		const image = document.createElement('img') as typeof post.images[number]
 		image.src = src
 		image.loading = 'lazy'
 		image.format = formatMatch[0]
 		image.classList.add('vch-enhancer-post-img')
 		modal.add(image)
+		fragment.image = image
 		if (!config.blockImages || (image.format !== 'jpg' && image.format !== 'png')
 			|| !src.match(/imgur|twimg/)) {
 			fragment.appendChild(document.createElement('br'))
@@ -125,7 +126,7 @@ namespace Images {
 			try {
 				const response = await GM_fetch(src)
 				const arraybuffer = await response.arrayBuffer()
-				const _hash = await hash.get(arraybuffer, image.format as 'jpg' | 'png')
+				const _hash = await hash.get(arraybuffer, image.format as Message['format'])
 				config.blockedImages.add(_hash)
 				config.save()
 			} catch (err) {
@@ -146,7 +147,7 @@ namespace Images {
 				if (post.isHidden) { return }
 				const arraybuffer = await response.arrayBuffer()
 				if (post.isHidden) { return }
-				const _hash = await hash.get(arraybuffer, image.format as 'jpg' | 'png')
+				const _hash = await hash.get(arraybuffer, image.format as Message['format'])
 				if (!post.isHidden && config.blockedImages.has(_hash)) {
 					post.hide()
 				}
@@ -384,7 +385,7 @@ function embedThumbnails(post: Post, urls: HTMLAnchorElement[], config: Config, 
 	for (const url of urls) {
 		const fragment = Images.create(url.href, post, config, modal, hash)
 		if (fragment) {
-			post.images.push(fragment.lastElementChild as typeof post.images[number])
+			post.images.push(fragment.image)
 			insertAfter(url, fragment)
 		}
 	}
@@ -518,6 +519,8 @@ abstract class MenuItem {
 }
 
 namespace Menu {
+	type With<T, K extends keyof T> = T & Required<Pick<T, K>>
+
 	export function retry(config: Config, count: number) {
 		if (count < 3 && !create(config)) {
 			setTimeout(retry, 1000, config, count + 1)
@@ -531,39 +534,55 @@ namespace Menu {
 		}
 
 		const items = [
-			MenuItem.builder().checkbox('embedThumbnails')
-				.text('サムネイル画像を表示する').build(),
-			MenuItem.builder().checkbox('embedTweets')
-				.text('ツイートを埋め込む').build(),
-			MenuItem.builder().checkbox('blockUsers')
-				.text('NGユーザー').button('設定').textArea('blockedUsers').build(),
-			MenuItem.builder().checkbox('blockWords')
-				.text('NGワード').button('設定').textArea('blockedWords').build(),
-			MenuItem.builder().checkbox('blockImages')
-				.text('NG画像').button('設定').textArea('blockedImages').build()
-		]
-		MenuItem.Builder.disableOthersWhenUnchecked(items[0], items[4].checkbox!, items[4].button!)
-		MenuItem.Builder.disableOthersWhenUnchecked(items[2], items[2].button!)
-		MenuItem.Builder.disableOthersWhenUnchecked(items[3], items[3].button!)
-		MenuItem.Builder.disableOthersWhenUnchecked(items[4], items[4].button!)
-		items.forEach(item => item.checkbox!.checked = config[item.checkbox!.key] as boolean)
+			MenuItem.builder()
+				.checkbox('embedThumbnails')
+				.text('サムネイル画像を表示する')
+				.build() as With<MenuItem, 'checkbox'>,
+			MenuItem.builder()
+				.checkbox('embedTweets')
+				.text('ツイートを埋め込む')
+				.build() as With<MenuItem, 'checkbox'>,
+			MenuItem.builder()
+				.checkbox('blockUsers')
+				.text('NGユーザー')
+				.button('設定')
+				.textArea('blockedUsers')
+				.build() as With<With<With<MenuItem, 'checkbox'>, 'button'>, 'textArea'>,
+			MenuItem.builder()
+				.checkbox('blockWords')
+				.text('NGワード')
+				.button('設定')
+				.textArea('blockedWords')
+				.build() as With<With<With<MenuItem, 'checkbox'>, 'button'>, 'textArea'>,
+			MenuItem.builder()
+				.checkbox('blockImages')
+				.text('NG画像')
+				.button('設定')
+				.textArea('blockedImages')
+				.build() as With<With<With<MenuItem, 'checkbox'>, 'button'>, 'textArea'>
+		] as const
+		MenuItem.Builder.disableOthersWhenUnchecked(items[0], items[4].checkbox, items[4].button)
+		MenuItem.Builder.disableOthersWhenUnchecked(items[2], items[2].button)
+		MenuItem.Builder.disableOthersWhenUnchecked(items[3], items[3].button)
+		MenuItem.Builder.disableOthersWhenUnchecked(items[4], items[4].button)
+		items.forEach(item => item.checkbox.checked = config[item.checkbox.key] as boolean)
 
 		const popup = new Popup()
-		popup.current = items[2].textArea!
-		const itemsWithTextArea = [items[2], items[3], items[4]]
+		popup.current = items[2].textArea
+		const itemsWithTextArea = [items[2], items[3], items[4]] as const
 		for (const item of itemsWithTextArea) {
-			item.textArea!.value = [...config[item.textArea!.key] as Set<string>].join('\n')
-			popup.window.appendChild(item.textArea!)
-			item.button!.addEventListener('click', () => {
+			item.textArea.value = [...config[item.textArea.key] as Set<string>].join('\n')
+			popup.window.appendChild(item.textArea)
+			item.button.addEventListener('click', () => {
 				popup.show(item)
 			})
 		}
 		const confirmButton = document.getElementById('saveOptions')
 		confirmButton?.addEventListener('click', () => {
 			for (const item of itemsWithTextArea) {
-				const values = new Set(item.textArea!.value.split('\n'))
+				const values = new Set(item.textArea.value.split('\n'))
 				values.delete('')
-				;(config[item.textArea!.key] as Set<string>) = values
+				;(config[item.textArea.key] as Set<string>) = values
 			}
 			config.save()
 		})
@@ -571,11 +590,11 @@ namespace Menu {
 			document.getElementById('cancelOptions'),
 			document.getElementById('close_options'),
 			document.getElementById('option_container_bg')
-		]
+		] as const
 		for (const button of cancelButtons) {
 			button?.addEventListener('click', () => {
 				for (const item of itemsWithTextArea) {
-					item.textArea!.value = [...config[item.textArea!.key] as Set<string>].join('\n')
+					item.textArea.value = [...config[item.textArea!.key] as Set<string>].join('\n')
 				}
 			})
 		}
@@ -608,10 +627,10 @@ namespace Menu {
 			document.body.appendChild(this.background)
 		}
 
-		show(menuItem: MenuItem) {
+		show(menuItem: With<MenuItem, 'textArea'>) {
 			menuItem.textArea!.classList.remove('vch-enhancer-hide')
 			this.background.classList.remove('vch-enhancer-hide')
-			this.current = menuItem.textArea!
+			this.current = menuItem.textArea
 		}
 
 		hide() {
