@@ -60,9 +60,10 @@ class Modal {
 	private container: HTMLDivElement
 	private current: { image: HTMLImageElement, index: number }
 	private images: BiMap<number, HTMLImageElement>
-	private start: {
-		mouseX: number, mouseY: number,
-		scrollX: number, scrollY: number
+	private mouse: {
+		startX: number, startY: number,
+		prevX: number, prevY: number,
+		threshold: number, hasMoved: boolean
 	}
 	private extraKeyDownHandler?: (image: HTMLImageElement) => void
 
@@ -78,35 +79,50 @@ class Modal {
 		this.current.image.draggable = false
 		this.container.appendChild(this.current.image)
 		this.images = new BiMap()
-		this.start = { mouseX: 0, mouseY: 0, scrollX: 0, scrollY: 0 }
+		this.mouse = {
+			startX: 0, startY: 0,
+			prevX: 0, prevY: 0,
+			threshold: 1, hasMoved: false
+		}
 		if (extraKeyDownHandler) {
 			this.extraKeyDownHandler = extraKeyDownHandler
 		}
 	}
 
 	private mouseDownHandler = (e: MouseEvent) => {
-		this.start.mouseX = e.screenX
-		this.start.mouseY = e.screenY
-		this.start.scrollX = this.container.scrollLeft
-		this.start.scrollY = this.container.scrollTop
+		if (e.button !== 0) {
+			return
+		}
+		this.mouse.startX = e.screenX
+		this.mouse.startY = e.screenY
+		this.mouse.prevX = e.screenX
+		this.mouse.prevY = e.screenY
+		this.mouse.hasMoved = false
 		window.addEventListener('mousemove', this.mouseMoveHandler)
 		window.addEventListener('mouseup', this.mouseUpHandler, { once: true })
 	}
 
 	private mouseMoveHandler = (e: MouseEvent) => {
-		const dx = (this.start.mouseX - e.screenX) / window.devicePixelRatio
-		const dy = (this.start.mouseY - e.screenY) / window.devicePixelRatio
-		this.container.scrollTo({
-			top: this.start.scrollY + dy,
-			left: this.start.scrollX + dx,
+		if (!this.mouse.hasMoved) {
+			const dx = (this.mouse.startX - e.screenX) / window.devicePixelRatio
+			const dy = (this.mouse.startY - e.screenY) / window.devicePixelRatio
+			if (Math.abs(dx) > this.mouse.threshold || Math.abs(dy) > this.mouse.threshold) {
+				this.mouse.hasMoved = true
+			}
+		}
+		const dx = (this.mouse.prevX - e.screenX) / window.devicePixelRatio
+		const dy = (this.mouse.prevY - e.screenY) / window.devicePixelRatio
+		this.container.scrollBy({
+			top: dy,
+			left: dx,
 			behavior: 'smooth'
 		})
+		this.mouse.prevX = e.screenX
+		this.mouse.prevY = e.screenY
 	}
 
 	private mouseUpHandler = (e: MouseEvent) => {
-		const dx = (this.start.mouseX - e.screenX) / window.devicePixelRatio
-		const dy = (this.start.mouseY - e.screenY) / window.devicePixelRatio
-		if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1 && (e.target === this.current.image || e.target === this.container)) {
+		if (!this.mouse.hasMoved && (e.target === this.current.image || e.target === this.container)) {
 			this.hide()
 		}
 		window.removeEventListener('mousemove', this.mouseMoveHandler)
@@ -146,7 +162,7 @@ class Modal {
 	show(index: number): void
 	show(image: HTMLImageElement): void
 	show(indexOrImage?: number | HTMLImageElement) {
-		if (indexOrImage === undefined) {
+		if (indexOrImage == undefined) {
 			// Do nothing
 		} else if (typeof indexOrImage === 'number') {
 			this.current.image.src = this.images.getValue(indexOrImage)!.src

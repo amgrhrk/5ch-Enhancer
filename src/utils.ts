@@ -1,3 +1,5 @@
+type With<T, K extends keyof T> = T & { [P in K]-?: NonNullable<T[P]> }
+
 function insertAfter(referenceNode: Node, newNode: Node) {
 	const parentNode = referenceNode.parentNode!
 	parentNode.insertBefore(newNode, referenceNode.nextSibling)
@@ -209,6 +211,7 @@ abstract class Post {
 	abstract get isp(): string
 	abstract get id(): string
 	abstract get content(): string
+	abstract get contentAsNodes(): Node[]
 	abstract get urls(): HTMLAnchorElement[]
 	abstract nameOrIspIncludes(keyword: string): boolean
 
@@ -257,6 +260,20 @@ abstract class Post {
 		}
 		return false
 	}
+
+	convertTextToUrl() {
+		this.contentAsNodes.filter(node => node.nodeType === Node.TEXT_NODE)
+			.filter((node): node is With<Node, 'textContent'> => node.textContent !== null)
+			.filter(node => node.textContent.match(/^ (?:tps|ttps):/))
+			.forEach(node => {
+				const url = document.createElement('a')
+				url.href = node.textContent
+				url.target = '_blank'
+				url.rel = 'noopener noreferrer'
+				insertAfter(node, url)
+				node.parentNode!.removeChild(node)
+			})
+	}
 }
 
 class NewPost extends Post {
@@ -283,6 +300,12 @@ class NewPost extends Post {
 		const container = this.container.lastElementChild!
 		const innerContainer = container.firstElementChild as HTMLElement
 		return innerContainer.innerText
+	}
+
+	get contentAsNodes() {
+		const container = this.container.lastElementChild!
+		const innerContainer = container.firstElementChild as HTMLElement
+		return [...innerContainer.childNodes]
 	}
 
 	get urls() {
@@ -318,6 +341,10 @@ class OldPost extends Post {
 
 	get content() {
 		return (this.container.children[1] as HTMLElement).innerText
+	}
+
+	get contentAsNodes() {
+		return [...(this.container.children[1] as HTMLElement).childNodes]
 	}
 
 	get urls() {
@@ -378,11 +405,11 @@ class Config {
 	}
 }
 
-function embedThumbnails(post: Post, urls: HTMLAnchorElement[], config: Config, modal: Modal, hash: Images.Hash) {
+function embedThumbnails(post: Post, config: Config, modal: Modal, hash: Images.Hash) {
 	if (post.nameOrIspIncludesAnyOf(config.suspiciousNames)) {
 		return
 	}
-	for (const url of urls) {
+	for (const url of post.urls) {
 		const fragment = Images.create(url.href, post, config, modal, hash)
 		if (fragment) {
 			post.images.push(fragment.image)
@@ -391,20 +418,21 @@ function embedThumbnails(post: Post, urls: HTMLAnchorElement[], config: Config, 
 	}
 }
 
-function embedTweets(urls: HTMLAnchorElement[]) {
+function embedTweets(post: Post) {
 	// Intended to not wait
-	urls.filter(url => url.href.match(/twitter\.com\/.+?\/status\/./)).forEach(async url => {
-		try {
-			const tweet = await Twitter.create(url.href)
-			if (url.nextElementSibling?.tagName === 'BR') {
-				url.nextElementSibling.remove()
+	post.urls.filter(url => url.href.match(/twitter\.com\/.+?\/status\/./))
+		.forEach(async url => {
+			try {
+				const tweet = await Twitter.create(url.href)
+				if (url.nextElementSibling?.tagName === 'BR') {
+					url.nextElementSibling.remove()
+				}
+				insertAfter(url, tweet)
+				Twitter.load(tweet)
+			} catch (err) {
+				log(err)
 			}
-			insertAfter(url, tweet)
-			Twitter.load(tweet)
-		} catch (err) {
-			log(err)
-		}
-	})
+		})
 }
 
 abstract class MenuItem {
@@ -519,8 +547,6 @@ abstract class MenuItem {
 }
 
 namespace Menu {
-	type With<T, K extends keyof T> = T & Required<Pick<T, K>>
-
 	export function retry(config: Config, count: number) {
 		if (count < 3 && !create(config)) {
 			setTimeout(retry, 1000, config, count + 1)
@@ -547,19 +573,19 @@ namespace Menu {
 				.text('NGユーザー')
 				.button('設定')
 				.textArea('blockedUsers')
-				.build() as With<With<With<MenuItem, 'checkbox'>, 'button'>, 'textArea'>,
+				.build() as With<MenuItem, 'checkbox' | 'button' | 'textArea'>,
 			MenuItem.builder()
 				.checkbox('blockWords')
 				.text('NGワード')
 				.button('設定')
 				.textArea('blockedWords')
-				.build() as With<With<With<MenuItem, 'checkbox'>, 'button'>, 'textArea'>,
+				.build() as With<MenuItem, 'checkbox' | 'button' | 'textArea'>,
 			MenuItem.builder()
 				.checkbox('blockImages')
 				.text('NG画像')
 				.button('設定')
 				.textArea('blockedImages')
-				.build() as With<With<With<MenuItem, 'checkbox'>, 'button'>, 'textArea'>
+				.build() as With<MenuItem, 'checkbox' | 'button' | 'textArea'>
 		] as const
 		MenuItem.Builder.disableOthersWhenUnchecked(items[0], items[4].checkbox, items[4].button)
 		MenuItem.Builder.disableOthersWhenUnchecked(items[2], items[2].button)

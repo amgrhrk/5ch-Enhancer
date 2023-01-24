@@ -63,15 +63,15 @@ document.addEventListener('DOMContentLoaded', () => {
 			post.hide()
 			continue
 		}
-		const urls = post.urls
-		for (const url of urls) {
+		for (const url of post.urls) {
 			url.href = Twitter.trim(url.innerText)
 		}
+		post.convertTextToUrl()
 		if (config.embedThumbnails) {
-			embedThumbnails(post, urls, config, modal!, hash!)
+			embedThumbnails(post, config, modal!, hash!)
 		}
 		if (config.embedTweets) {
-			embedTweets(urls)
+			embedTweets(post)
 		}
 	}
 })
