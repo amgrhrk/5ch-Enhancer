@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		? [...document.querySelectorAll<HTMLElement>('dl.thread > dt')]
 			.map(dt => new OldPost(dt, dt.nextElementSibling as HTMLElement))
 		: [...document.querySelectorAll<HTMLDivElement>('div.post')]
-			.map(div => new NewPost(div))
+			.map(div => new NewPost(div, div.nextElementSibling as HTMLElement))
 	for (const post of posts) {
 		if (post.nameOrIspIncludesAnyOf(config.blockedUsers)
 			|| post.contentIncludesAnyOf(config.blockedWords)) {

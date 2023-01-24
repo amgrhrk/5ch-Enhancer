@@ -187,24 +187,10 @@ class VirtualDiv {
 			child.classList.remove(...tokens)
 		}
 	}
-
-	get firstElementChild() {
-		if (this.children.length === 0) {
-			return null
-		}
-		return this.children[0] as Element
-	}
-
-	get lastElementChild() {
-		if (this.children.length === 0) {
-			return null
-		}
-		return this.children[this.children.length - 1] as Element
-	}
 }
 
 abstract class Post {
-	container!: HTMLElement | VirtualDiv
+	container!: VirtualDiv
 	images: (HTMLImageElement & { format: string })[]
 	isHidden: boolean
 	abstract get name(): string
@@ -277,9 +263,18 @@ abstract class Post {
 }
 
 class NewPost extends Post {
-	constructor(container: HTMLElement) {
+	constructor(...elements: HTMLElement[]) {
 		super()
-		this.container = container
+		this.container = new VirtualDiv(...elements)
+	}
+
+	private get meta() {
+		return this.container.children[0].children[0]
+	}
+
+	private get contentContainer() {
+		const container = this.container.children[0].lastElementChild!
+		return container.children[0] as HTMLElement
 	}
 
 	get name(): string {
@@ -291,32 +286,24 @@ class NewPost extends Post {
 	}
 
 	get id() {
-		const meta = this.container.firstElementChild!
-		const uid = meta.children[3] as HTMLElement
+		const uid = this.meta.children[3] as HTMLElement
 		return uid.innerText
 	}
 
 	get content() {
-		const container = this.container.lastElementChild!
-		const innerContainer = container.firstElementChild as HTMLElement
-		return innerContainer.innerText
+		return this.contentContainer.innerText
 	}
 
 	get contentAsNodes() {
-		const container = this.container.lastElementChild!
-		const innerContainer = container.firstElementChild as HTMLElement
-		return [...innerContainer.childNodes]
+		return [...this.contentContainer.childNodes]
 	}
 
 	get urls() {
-		const container = this.container.lastElementChild!
-		const innerContainer = container.firstElementChild!
-		return [...innerContainer.querySelectorAll('a')]
+		return [...this.contentContainer.querySelectorAll('a')]
 	}
 
 	nameOrIspIncludes(string: string) {
-		const meta = this.container.firstElementChild!
-		const nameAndIsp = meta.children[1] as HTMLElement
+		const nameAndIsp = this.meta.children[1] as HTMLElement
 		return nameAndIsp.innerText.includes(string)
 	}
 }
@@ -352,7 +339,7 @@ class OldPost extends Post {
 	}
 
 	nameOrIspIncludes(string: string) {
-		const meta = this.container.firstElementChild!
+		const meta = this.container.children[0]
 		const nameAndIsp = meta.children[0] as HTMLElement
 		return nameAndIsp.innerText.includes(string)
 	}

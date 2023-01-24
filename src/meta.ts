@@ -14,7 +14,7 @@
 // @match        https://*.bbspink.com/*
 // @exclude      http://info.5ch.net/*
 // @exclude      https://info.5ch.net/*
-// @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
+// @icon         https://www.google.com/s2/favicons?domain=5ch.net
 // @run-at       document-start
 // @grant        GM.xmlHttpRequest
 // @grant        GM_setValue
