@@ -248,17 +248,22 @@ abstract class Post {
 	}
 
 	convertTextToUrl() {
-		this.contentAsNodes.filter(node => node.nodeType === Node.TEXT_NODE)
-			.filter((node): node is With<Node, 'textContent'> => node.textContent !== null)
-			.filter(node => node.textContent.match(/^ (?:tps|ttps):/))
-			.forEach(node => {
-				const url = document.createElement('a')
-				url.href = node.textContent
-				url.target = '_blank'
-				url.rel = 'noopener noreferrer'
-				insertAfter(node, url)
-				node.parentNode!.removeChild(node)
-			})
+		for (const node of this.contentAsNodes) {
+			if (node.nodeType !== Node.TEXT_NODE || !node.textContent) {
+				continue
+			}
+			const match = node.textContent.match(/^ (?:tps|ttps):/)
+			if (!match) {
+				continue
+			}
+			const url = document.createElement('a')
+			url.href = `https:${node.textContent.substring(match[0].length).trimEnd()}`
+			url.innerText = url.href
+			url.target = '_blank'
+			url.rel = 'noopener noreferrer'
+			insertAfter(node, url)
+			node.parentNode!.removeChild(node)
+		}
 	}
 }
 
