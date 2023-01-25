@@ -136,18 +136,19 @@ class Modal {
 		if (e.repeat) {
 			return
 		}
+		let nextIndex: number
 		switch (e.code) {
 			case 'KeyW':
 			case 'KeyA':
 			case 'ArrowUp':
 			case 'ArrowLeft':
-				this.current.index = ((this.current.index - 1) % this.images.size + this.images.size) % this.images.size
+				nextIndex = ((this.current.index - 1) % this.images.size + this.images.size) % this.images.size
 				break
 			case 'KeyS':
 			case 'KeyD':
 			case 'ArrowDown':
 			case 'ArrowRight':
-				this.current.index = (this.current.index + 1) % this.images.size
+				nextIndex = (this.current.index + 1) % this.images.size
 				break
 			default:
 				return
@@ -156,6 +157,7 @@ class Modal {
 		if (this.extraKeyDownHandler) {
 			this.extraKeyDownHandler(nextImage)
 		}
+		this.current.index = nextIndex
 		this.current.image.src = nextImage.src
 	}
 
