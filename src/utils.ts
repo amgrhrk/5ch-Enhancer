@@ -252,12 +252,12 @@ abstract class Post {
 			if (node.nodeType !== Node.TEXT_NODE || !node.textContent) {
 				continue
 			}
-			const match = node.textContent.match(/^ (?:tps|ttps):/)
+			const match = node.textContent.match(/^ (?:tp|ttp|tps|ttps|ps):\/\//)
 			if (!match) {
 				continue
 			}
 			const url = document.createElement('a')
-			url.href = `https:${node.textContent.substring(match[0].length).trimEnd()}`
+			url.href = `https://${node.textContent.substring(match[0].length).trimEnd()}`
 			url.innerText = url.href
 			url.target = '_blank'
 			url.rel = 'noopener noreferrer'

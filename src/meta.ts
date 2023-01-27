@@ -40,6 +40,6 @@ declare function GM_getResourceURL(name: string): string
 declare const twttr: { widgets: { load: (container?: HTMLElement) => void } }
 
 const scriptName = '5ch-Enhancer'
-const log = (...data: any[]) => {
+function log(...data: any[]) {
 	console.log(`[${scriptName}]:`, ...data)
 }
