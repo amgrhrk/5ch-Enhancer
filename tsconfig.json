@@ -9,6 +9,8 @@
 		"src/meta.ts",
 		"src/modal/modal.ts",
 		"src/utils.ts",
+		"src/post.ts",
+		"src/menu.ts",
 		"src/index.ts"
 	]
 }
