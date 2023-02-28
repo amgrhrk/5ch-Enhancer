@@ -24,7 +24,7 @@
 // @grant        GM_getResourceURL
 // @resource     twitter https://platform.twitter.com/widgets.js
 // @resource     css https://cdn.jsdelivr.net/gh/amgrhrk/5ch-Enhancer/src/style.css
-// @resource     hash https://cdn.jsdelivr.net/gh/amgrhrk/5ch-Enhancer/src/blockhash/blockhash.js
+// @resource     hash https://cdn.jsdelivr.net/gh/amgrhrk/5ch-Enhancer/src/blockhash/bundled.js
 // @require      https://cdn.jsdelivr.net/npm/@trim21/gm-fetch
 // @connect      twitter.com
 // @connect      twimg.com
