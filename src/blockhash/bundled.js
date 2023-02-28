@@ -1647,18 +1647,18 @@ const PNG = (function () {
 	let APNG_DISPOSE_OP_PREVIOUS = 2;
 	let APNG_BLEND_OP_SOURCE = 0;
 	let APNG_BLEND_OP_OVER = 1;
-	let scratchCanvas = document.createElement('canvas');
-	let scratchCtx = scratchCanvas.getContext('2d');
-	let makeImage = function (imageData) {
-		scratchCtx.width = imageData.width;
-		scratchCtx.height = imageData.height;
-		scratchCtx.clearRect(0, 0, imageData.width, imageData.height);
-		scratchCtx.putImageData(imageData, 0, 0);
+	// let scratchCanvas = document.createElement('canvas');
+	// let scratchCtx = scratchCanvas.getContext('2d');
+	// let makeImage = function (imageData) {
+	// 	scratchCtx.width = imageData.width;
+	// 	scratchCtx.height = imageData.height;
+	// 	scratchCtx.clearRect(0, 0, imageData.width, imageData.height);
+	// 	scratchCtx.putImageData(imageData, 0, 0);
 
-		const img = new Image();
-		img.src = scratchCanvas.toDataURL();
-		return img;
-	};
+	// 	const img = new Image();
+	// 	img.src = scratchCanvas.toDataURL();
+	// 	return img;
+	// };
 
 	class PNG {
 		static load(url, canvas, callback) {
@@ -2106,7 +2106,7 @@ const PNG = (function () {
 
 				this.copyToImageData(imageData, pixels);
 				frame.imageData = imageData;
-				frame.image = makeImage(imageData);
+				// frame.image = makeImage(imageData);
 			}
 		}
 
