@@ -2366,12 +2366,12 @@ const BlockHash = (() => {
 	}
 })();
 
-const getImageData = (data) => {
+const getImageData = (image) => {
 	switch (image.format) {
 		case 'jpg':
-			return JPG.decode(data.image, { useTArray: true })
+			return JPG.decode(image.image, { useTArray: true })
 		case 'png':
-			const png = new PNG(data.image)
+			const png = new PNG(image.image)
 			return {
 				width: png.width,
 				height: png.height,
