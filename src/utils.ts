@@ -252,3 +252,30 @@ function embedTweets(post: Post) {
 			}
 		})
 }
+
+function enableLazyLoading(posts: Post[], index = 100, target = document.createElement('div')) {
+	if (index > 100) {
+		for (let i = index - 100; i < index && i < posts.length; i++) {
+			posts[i].show()
+		}
+	}
+	if (index >= posts.length) {
+		return
+	}
+	for (let i = index; i < posts.length; i++) {
+		posts[i].hide()
+	}
+	const lastPost = posts[index]
+	const lastElement = lastPost.container.children[0]
+	lastElement.insertAdjacentElement('beforebegin', target)
+	const observer = new IntersectionObserver(entries => {
+		for (const entry of entries) {
+			if (entry.isIntersecting) {
+				observer.disconnect()
+				enableLazyLoading(posts, index + 100, target)
+				return
+			}
+		}
+	})
+	observer.observe(target)
+}

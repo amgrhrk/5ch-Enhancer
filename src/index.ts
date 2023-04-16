@@ -16,6 +16,8 @@ const remover = new MutationObserver(mutations => {
 				const node = addedNode as HTMLScriptElement
 				if (node.src === 'https://agree.5ch.net/js/thumbnailer.js') {
 					node.remove()
+					remover.disconnect()
+					return
 				}
 			}
 		}
@@ -60,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	for (const post of posts) {
 		if (post.nameOrIspIncludesAnyOf(config.blockedUsers)
 			|| post.contentIncludesAnyOf(config.blockedWords)) {
-			post.hide()
+			post.hide(true)
 			continue
 		}
 		for (const url of post.urls) {
@@ -74,4 +76,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			embedTweets(post)
 		}
 	}
+
+	enableLazyLoading(posts)
 })

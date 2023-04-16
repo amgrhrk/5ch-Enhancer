@@ -29,6 +29,7 @@ class VirtualDiv {
 abstract class Post {
 	container!: VirtualDiv
 	isHidden: boolean
+	forceHidden: boolean
 	abstract get name(): string
 	abstract get isp(): string
 	abstract get id(): string
@@ -39,16 +40,23 @@ abstract class Post {
 
 	constructor() {
 		this.isHidden = false
+		this.forceHidden = false
 	}
 
 	show() {
+		if (this.forceHidden) {
+			return
+		}
 		this.container.classList.remove('vch-enhancer-hide')
 		this.isHidden = false
 	}
 
-	hide() {
+	hide(force?: boolean) {
 		this.container.classList.add('vch-enhancer-hide')
 		this.isHidden = true
+		if (force) {
+			this.forceHidden = true
+		}
 	}
 
 	static getMostFrequentName(posts: Post[]) {
