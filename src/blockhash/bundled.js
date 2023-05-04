@@ -2371,7 +2371,7 @@ const getImageData = (image) => {
 		case 'jpg':
 			return JPG.decode(image.image, { useTArray: true })
 		case 'png':
-			const png = new PNG(image.image)
+			const png = new PNG(new Uint8Array(image.image))
 			return {
 				width: png.width,
 				height: png.height,
