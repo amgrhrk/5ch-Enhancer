@@ -96,7 +96,7 @@ namespace Images {
 			return new Promise<string>((resolve, reject) => {
 				this.resolves.set(message.id, resolve)
 				this.rejects.set(message.id, reject)
-				this.worker.postMessage(message)
+				this.worker.postMessage(message, [message.image])
 			})
 		}
 	}
