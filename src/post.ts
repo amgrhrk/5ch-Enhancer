@@ -110,7 +110,44 @@ abstract class Post {
 	}
 }
 
-class NewPost extends Post {
+class PostVer1 extends Post {
+	constructor(...elements: HTMLElement[]) {
+		super()
+		this.container = new VirtualDiv(...elements)
+	}
+
+	get name(): string {
+		throw new Error('Not Implemented')
+	}
+
+	get isp(): string {
+		throw new Error('Not Implemented')
+	}
+
+	get id(): string {
+		throw new Error('Not Implemented')
+	}
+
+	get content() {
+		return (this.container.children[1] as HTMLElement).innerText
+	}
+
+	get contentAsNodes() {
+		return [...(this.container.children[1] as HTMLElement).childNodes]
+	}
+
+	get urls() {
+		return [...this.container.children[1].querySelectorAll('a')]
+	}
+
+	nameOrIspIncludes(string: string) {
+		const meta = this.container.children[0]
+		const nameAndIsp = meta.children[0] as HTMLElement
+		return nameAndIsp.innerText.includes(string)
+	}
+}
+
+class PostVer2 extends Post {
 	constructor(...elements: HTMLElement[]) {
 		super()
 		this.container = new VirtualDiv(...elements)
@@ -156,10 +193,19 @@ class NewPost extends Post {
 	}
 }
 
-class OldPost extends Post {
+class PostVer3 extends Post {
 	constructor(...elements: HTMLElement[]) {
 		super()
 		this.container = new VirtualDiv(...elements)
+	}
+
+	private get meta() {
+		return this.container.children[0].children[0]
+	}
+
+	private get contentContainer() {
+		const container = this.container.children[0].lastElementChild!
+		return container as HTMLElement
 	}
 
 	get name(): string {
@@ -170,25 +216,25 @@ class OldPost extends Post {
 		throw new Error('Not Implemented')
 	}
 
-	get id(): string {
-		throw new Error('Not Implemented')
+	get id() {
+		const uid = this.meta.children[2] as HTMLElement
+		return uid.innerText
 	}
 
 	get content() {
-		return (this.container.children[1] as HTMLElement).innerText
+		return this.contentContainer.innerText
 	}
 
 	get contentAsNodes() {
-		return [...(this.container.children[1] as HTMLElement).childNodes]
+		return [...this.contentContainer.childNodes]
 	}
 
 	get urls() {
-		return [...this.container.children[1].querySelectorAll('a')]
+		return [...this.contentContainer.querySelectorAll('a')]
 	}
 
 	nameOrIspIncludes(string: string) {
-		const meta = this.container.children[0]
-		const nameAndIsp = meta.children[0] as HTMLElement
+		const nameAndIsp = this.meta.children[0].children[1] as HTMLElement
 		return nameAndIsp.innerText.includes(string)
 	}
 }

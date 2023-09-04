@@ -115,7 +115,7 @@ class Modal {
 		this.container.scrollBy({
 			top: dy,
 			left: dx,
-			behavior: 'smooth'
+			behavior: 'instant'
 		})
 		this.mouse.prevX = e.screenX
 		this.mouse.prevY = e.screenY

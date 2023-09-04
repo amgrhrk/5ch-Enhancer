@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		? new Modal()
 		: null
 
-	const scrollButton = document.createElement('button')
+	const scrollButton = document.createElement('div')
 	scrollButton.innerText = '🔼'
 	scrollButton.draggable = false
 	scrollButton.classList.add('vch-enhancer-scroll-button')
@@ -50,25 +50,47 @@ document.addEventListener('DOMContentLoaded', () => {
 			title.target = '_blank'
 			title.rel = 'noopener noreferrer'
 		}
-	} else {
-		setTimeout(Menu.retry, 1000, config, 0)
 	}
 
-	const posts: Post[] = threads
-		? [...document.querySelectorAll<HTMLElement>('dl.thread > dt')]
-			.map(dt => new OldPost(dt, dt.nextElementSibling as HTMLElement))
-		: [...document.querySelectorAll<HTMLDivElement>('div.post')]
-			.map(div => new NewPost(div, div.nextElementSibling as HTMLElement))
+	if (config.switchToClassicUI) {
+		const urls = document.querySelectorAll('a')
+		for (const url of urls) {
+			try {
+				const urlObj = new URL(url.href)
+				if (urlObj.hostname.includes('.5ch.')) {
+					const index = url.href.indexOf('/read.cgi/')
+					if (index >= 0) {
+						url.href = url.href.substring(0, index + 10) + 'c/' + url.href.substring(index + 10)
+					}
+				}
+			} catch (err) {}
+		}
+	}
+
+	Menu.create(config)
+
+	const posts: Post[] = (function getPosts() {
+		if (threads) {
+			return [...document.querySelectorAll<HTMLElement>('dl.thread > dt')]
+				.map(dt => new PostVer1(dt, dt.nextElementSibling as HTMLElement))
+		}
+		if (!document.getElementById('maincontent')) {
+			return [...document.querySelectorAll<HTMLDivElement>('div.post')]
+				.map(div => new PostVer2(div, div.nextElementSibling as HTMLElement))
+		}
+		return [...document.querySelectorAll<HTMLElement>('#thread > article')]
+			.map(article => new PostVer3(article))
+	})()
 	for (const post of posts) {
 		if (post.nameOrIspIncludesAnyOf(config.blockedUsers)
 			|| post.contentIncludesAnyOf(config.blockedWords)) {
 			post.hide(true)
 			continue
 		}
+		post.convertTextToUrl()
 		for (const url of post.urls) {
 			url.href = Twitter.trim(url.innerText)
 		}
-		post.convertTextToUrl()
 		if (config.embedThumbnails) {
 			embedThumbnails(post, config, modal!, hash!)
 		}

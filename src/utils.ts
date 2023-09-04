@@ -180,6 +180,7 @@ namespace Images {
 type GMConfig = {
 	embedThumbnails?: boolean
 	embedTweets?: boolean
+	switchToClassicUI?: boolean
 	blockUsers?: boolean
 	blockWords?: boolean
 	blockImages?: boolean
@@ -192,6 +193,7 @@ type GMConfig = {
 class Config {
 	embedThumbnails!: boolean
 	embedTweets!: boolean
+	switchToClassicUI!: boolean
 	blockUsers!: boolean
 	blockWords!: boolean
 	blockImages!: boolean
@@ -199,7 +201,7 @@ class Config {
 	blockedWords!: Set<string>
 	blockedImages!: Set<string>
 	suspiciousNames!: Set<string>
-	private static booleanFields = ['embedThumbnails', 'embedTweets', 'blockUsers', 'blockWords', 'blockImages'] as const
+	private static booleanFields = ['embedThumbnails', 'embedTweets', 'switchToClassicUI', 'blockUsers', 'blockWords', 'blockImages'] as const
 	private static setFields = ['blockedUsers', 'blockedWords', 'blockedImages', 'suspiciousNames'] as const
 
 	constructor() {

@@ -1,230 +1,237 @@
-abstract class MenuItem {
-	container: HTMLDivElement
-	checkbox?: HTMLInputElement & {
-		key: keyof GMConfig
-		disables?: { disabled: boolean }[]
-	}
-	button?: HTMLButtonElement
-	textArea?: HTMLTextAreaElement & {
-		key: keyof GMConfig
-	}
-
-	constructor() {
-		this.container = document.createElement('div')
-		this.container.classList.add('vch-enhancer-menu-item')
-	}
-
-	static builder() {
-		return new MenuItem.Builder()
-	}
-
-	private static MenuItem = class extends MenuItem {}
-	static Builder = class MenuItemBuilder {
-		private _text?: string
-		private _checkbox?: { key: keyof GMConfig }
-		private _button?: { text: string }
-		private _textArea?: { key: keyof GMConfig }
-
-		text(text: string) {
-			this._text = text
-			return this
-		}
-
-		checkbox(key: keyof GMConfig) {
-			this._checkbox = { key }
-			return this
-		}
-
-		button(text: string) {
-			this._button = { text }
-			return this
-		}
-
-		textArea(key: keyof GMConfig) {
-			this._textArea = { key }
-			return this
-		}
-
-		private createCheckbox(item: MenuItem) {
-			if (!this._checkbox) {
-				return null
-			}
-			const checkbox = document.createElement('input') as NonNullable<MenuItem['checkbox']>
-			checkbox.key = this._checkbox.key
-			checkbox.type = 'checkbox'
-			checkbox.classList.add('option_style_6')
-			item.checkbox = checkbox
-			item.container.insertAdjacentElement('afterbegin', checkbox)
-			return checkbox
-		}
-
-		private createButton(item: MenuItem) {
-			if (!this._button) {
-				return null
-			}
-			const button = document.createElement('button')
-			button.innerText = this._button.text
-			button.classList.add('option_style_13')
-			item.button = button
-			item.container.insertAdjacentElement('beforeend', button)
-			return button
-		}
-
-		private createTextArea(item: MenuItem) {
-			if (!this._textArea) {
-				return null
-			}
-			const textArea = document.createElement('textarea') as NonNullable<MenuItem['textArea']>
-			textArea.key = this._textArea.key
-			textArea.classList.add('vch-enhancer-hide')
-			item.textArea = textArea
-			return textArea
-		}
-
-		build() {
-			const item = new MenuItem.MenuItem() as MenuItem
-			if (this._text != null) {
-				item.container.innerText = this._text
-			}
-			this.createCheckbox(item)
-			this.createButton(item)
-			this.createTextArea(item)
-			return item
-		}
-
-		static disableOthersWhenUnchecked(item: MenuItem, ...disables: { disabled: boolean }[]) {
-			if (item.checkbox!.disables) {
-				for (const disable of disables) {
-					item.checkbox!.disables.push(disable)
-				}
-				return
-			}
-			item.checkbox!.disables = disables
-			item.checkbox!.addEventListener('change', () => {
-				item.checkbox!.checked
-					? item.checkbox!.disables!.forEach(e => e.disabled = false)
-					: item.checkbox!.disables!.forEach(e => e.disabled = true)
-			})
-		}
-	}
-}
-
 namespace Menu {
-	export function retry(config: Config, count: number) {
-		if (count < 3 && !create(config)) {
-			setTimeout(retry, 1000, config, count + 1)
+	const template =
+`<div class="vch-enhancer-popup-modal vch-enhancer-hide">
+	<div class="vch-enhancer-menu">
+		<div class="vch-enhancer-menu-item">
+			<label>
+				<input type="checkbox" class="vch-enhancer-checkbox">
+				サムネイル画像を表示する
+			</label>
+		</div>
+		<div class="vch-enhancer-menu-item">
+			<label>
+				<input type="checkbox" class="vch-enhancer-checkbox">
+				ツイートを埋め込む
+			</label>
+		</div>
+		<div class="vch-enhancer-menu-item">
+			<label>
+				<input type="checkbox" class="vch-enhancer-checkbox">
+				クラシック版に切り替える
+			</label>
+		</div>
+		<div class="vch-enhancer-menu-item">
+			<label>
+				<input type="checkbox" class="vch-enhancer-checkbox">
+				NGユーザー
+			</label>
+			<button class="vch-enhancer-button">設定</button>
+		</div>
+		<div class="vch-enhancer-menu-item">
+			<label>
+				<input type="checkbox" class="vch-enhancer-checkbox">
+				NGワード
+			</label>
+			<button class="vch-enhancer-button">設定</button>
+		</div>
+		<div class="vch-enhancer-menu-item">
+			<label>
+				<input type="checkbox" class="vch-enhancer-checkbox">
+				NG画像
+			</label>
+			<button class="vch-enhancer-button">設定</button>
+		</div>
+		<div class="vch-enhancer-menu-buttons">
+			<button class="vch-enhancer-button vch-enhancer-button-primary">OK</button>
+			<button class="vch-enhancer-button">キャンセル</button>
+		</div>
+	</div>
+</div>`
+
+const textareaTemplate =
+`<div class="vch-enhancer-popup-modal vch-enhancer-hide">
+	<div class="vch-enhancer-menu">
+		<textarea class="vch-enhancer-hide"></textarea>
+		<textarea class="vch-enhancer-hide"></textarea>
+		<textarea class="vch-enhancer-hide"></textarea>
+	</div>
+</div>`
+
+	function createElement(html: string) {
+		const div = document.createElement('div')
+		div.innerHTML = html
+		return div.children[0] as HTMLElement
+	}
+
+	function trim(texts: string[]) {
+		const set = new Set<string>()
+		for (const text of texts) {
+			const t = text.trim()
+			if (t !== '') {
+				set.add(t)
+			}
 		}
+		return set
 	}
 
 	export function create(config: Config) {
-		const vanillaItem = document.querySelector('.option_style_8')
-		if (!vanillaItem) {
-			return false
-		}
-
-		const items = [
-			MenuItem.builder()
-				.checkbox('embedThumbnails')
-				.text('サムネイル画像を表示する')
-				.build() as With<MenuItem, 'checkbox'>,
-			MenuItem.builder()
-				.checkbox('embedTweets')
-				.text('ツイートを埋め込む')
-				.build() as With<MenuItem, 'checkbox'>,
-			MenuItem.builder()
-				.checkbox('blockUsers')
-				.text('NGユーザー')
-				.button('設定')
-				.textArea('blockedUsers')
-				.build() as With<MenuItem, 'checkbox' | 'button' | 'textArea'>,
-			MenuItem.builder()
-				.checkbox('blockWords')
-				.text('NGワード')
-				.button('設定')
-				.textArea('blockedWords')
-				.build() as With<MenuItem, 'checkbox' | 'button' | 'textArea'>,
-			MenuItem.builder()
-				.checkbox('blockImages')
-				.text('NG画像')
-				.button('設定')
-				.textArea('blockedImages')
-				.build() as With<MenuItem, 'checkbox' | 'button' | 'textArea'>
-		] as const
-		MenuItem.Builder.disableOthersWhenUnchecked(items[0], items[4].checkbox, items[4].button)
-		MenuItem.Builder.disableOthersWhenUnchecked(items[2], items[2].button)
-		MenuItem.Builder.disableOthersWhenUnchecked(items[3], items[3].button)
-		MenuItem.Builder.disableOthersWhenUnchecked(items[4], items[4].button)
-		items.forEach(item => item.checkbox.checked = config[item.checkbox.key] as boolean)
-
-		const popup = new Popup()
-		popup.current = items[2].textArea
-		const itemsWithTextArea = [items[2], items[3], items[4]] as const
-		for (const item of itemsWithTextArea) {
-			item.textArea.value = [...config[item.textArea.key] as Set<string>].join('\n')
-			popup.window.appendChild(item.textArea)
-			item.button.addEventListener('click', () => {
-				popup.show(item)
-			})
-		}
-		const confirmButton = document.getElementById('saveOptions')
-		confirmButton?.addEventListener('click', () => {
-			for (const item of itemsWithTextArea) {
-				const values = new Set(item.textArea.value.split('\n'))
-				values.delete('')
-				;(config[item.textArea.key] as Set<string>) = values
-			}
-			config.save()
+		const menu = createElement(template)
+		const textareaContainer = createElement(textareaTemplate)
+		const menuToggleButton = document.createElement('a')
+		menuToggleButton.href = 'javascript:void(0)'
+		menuToggleButton.classList.add('vch-enhancer-menu-toggle-button')
+		menuToggleButton.innerText = '設定'
+		menuToggleButton.addEventListener('click', () => {
+			menu.classList.remove('vch-enhancer-hide')
 		})
-		const cancelButtons = [
-			document.getElementById('cancelOptions'),
-			document.getElementById('close_options'),
-			document.getElementById('option_container_bg')
-		] as const
-		for (const button of cancelButtons) {
-			button?.addEventListener('click', () => {
-				for (const item of itemsWithTextArea) {
-					item.textArea.value = [...config[item.textArea!.key] as Set<string>].join('\n')
+
+		const items = (function () {
+			const items = menu.querySelectorAll<HTMLDivElement>('.vch-enhancer-menu-item')
+			return {
+				thumbnail: {
+					self: items[0],
+					checkbox: items[0].querySelector<HTMLInputElement>('.vch-enhancer-checkbox')!
+				},
+				tweet: {
+					self: items[1],
+					checkbox: items[1].querySelector<HTMLInputElement>('.vch-enhancer-checkbox')!
+				},
+				classic: {
+					self: items[2],
+					checkbox: items[2].querySelector<HTMLInputElement>('.vch-enhancer-checkbox')!
+				},
+				user: {
+					self: items[3],
+					checkbox: items[3].querySelector<HTMLInputElement>('.vch-enhancer-checkbox')!,
+					button: items[3].children[1] as HTMLButtonElement
+				},
+				word: {
+					self: items[4],
+					checkbox: items[4].querySelector<HTMLInputElement>('.vch-enhancer-checkbox')!,
+					button: items[4].children[1] as HTMLButtonElement
+				},
+				image: {
+					self: items[5],
+					checkbox: items[5].querySelector<HTMLInputElement>('.vch-enhancer-checkbox')!,
+					button: items[5].children[1] as HTMLButtonElement
 				}
-			})
+			} as const
+		})()
+
+		const textareas = (function () {
+			const result = textareaContainer.querySelectorAll('textarea')
+			const areas = {
+				user: result[0],
+				word: result[1],
+				image: result[2],
+				show(textarea: 'user' | 'word' | 'image') {
+					textareaContainer.classList.remove('vch-enhancer-hide')
+					areas[textarea].classList.remove('vch-enhancer-hide')
+				},
+				hide() {
+					areas.user.classList.add('vch-enhancer-hide')
+					areas.word.classList.add('vch-enhancer-hide')
+					areas.image.classList.add('vch-enhancer-hide')
+					textareaContainer.classList.add('vch-enhancer-hide')
+				}
+			} as const
+			return areas
+		})()
+
+		const buttons = (function () {
+			const buttons = menu.querySelector('.vch-enhancer-menu-buttons')!
+			return {
+				ok: buttons.children[0] as HTMLButtonElement,
+				cancel: buttons.children[1] as HTMLButtonElement
+			} as const
+		})()
+
+		function load() {
+			items.thumbnail.checkbox.checked = config.embedThumbnails
+			items.tweet.checkbox.checked = config.embedTweets
+			items.classic.checkbox.checked = config.switchToClassicUI
+			items.user.checkbox.checked = config.blockUsers
+			items.word.checkbox.checked = config.blockWords
+			items.image.checkbox.checked = config.blockImages
+			textareas.user.value = [...config.blockedUsers].join('\n')
+			textareas.word.value = [...config.blockedWords].join('\n')
+			textareas.image.value = [...config.blockedImages].join('\n')
 		}
 
-		const fragment = document.createDocumentFragment()
-		items.forEach(item => fragment.appendChild(item.container))
-		insertAfter(vanillaItem, fragment)
-		return true
-	}
+		function save() {
+			config.embedThumbnails = items.thumbnail.checkbox.checked
+			config.embedTweets = items.tweet.checkbox.checked
+			config.switchToClassicUI = items.classic.checkbox.checked
+			config.blockUsers = items.user.checkbox.checked
+			config.blockWords = items.word.checkbox.checked
+			config.blockImages = items.image.checkbox.checked
+			config.blockedUsers = trim(textareas.user.value.split('\n'))
+			config.blockedWords = trim(textareas.word.value.split('\n'))
+			config.blockedImages = trim(textareas.image.value.split('\n'))
+			config.save()
+		}
 
-	class Popup {
-		background: HTMLDivElement
-		window: HTMLDivElement
-		current!: HTMLTextAreaElement
+		items.thumbnail.checkbox.addEventListener('change', () => {
+			items.image.button.disabled = !(items.thumbnail.checkbox.checked && items.image.checkbox.checked)
+			items.image.checkbox.disabled = !items.thumbnail.checkbox.checked
+		})
+		items.user.checkbox.addEventListener('change', () => {
+			items.user.button.disabled = !items.user.checkbox.checked
+		})
+		items.user.button.addEventListener('click', () => {
+			textareas.show('user')
+		})
+		items.word.checkbox.addEventListener('change', () => {
+			items.word.button.disabled = !items.word.checkbox.checked
+		})
+		items.word.button.addEventListener('click', () => {
+			textareas.show('word')
+		})
+		items.image.checkbox.addEventListener('change', () => {
+			items.image.button.disabled = !(items.thumbnail.checkbox.checked && items.image.checkbox.checked)
+		})
+		items.image.button.addEventListener('click', () => {
+			textareas.show('image')
+		})
 
-		constructor() {
-			this.background = document.createElement('div')
-			this.background.classList.add('vch-enhancer-popup-background', 'vch-enhancer-hide')
-			this.background.addEventListener('mouseup', (e) => e.stopPropagation())
-			this.background.addEventListener('click', (e) => {
-				e.stopPropagation()
-				if (e.target !== e.currentTarget) {
+		buttons.ok.addEventListener('click', () => {
+			menu.classList.add('vch-enhancer-hide')
+			save()
+			load()
+		})
+		buttons.cancel.addEventListener('click', () => {
+			menu.classList.add('vch-enhancer-hide')
+			load()
+		})
+
+		menu.addEventListener('mousedown', e => {
+			if (e.target !== menu) {
+				return
+			}
+			window.addEventListener('mouseup', () => {
+				if (e.target !== menu) {
 					return
 				}
-				this.hide()
-			})
-			this.window = document.createElement('div')
-			this.window.classList.add('vch-enhancer-popup-window')
-			this.background.appendChild(this.window)
-			document.body.appendChild(this.background)
-		}
+				menu.classList.add('vch-enhancer-hide')
+				load()
+			}, { once: true })
+		})
+		textareaContainer.addEventListener('mousedown', e => {
+			if (e.target !== textareaContainer) {
+				return
+			}
+			window.addEventListener('mouseup', () => {
+				if (e.target !== textareaContainer) {
+					return
+				}
+				textareas.hide()
+			}, { once: true })
+		})
 
-		show(menuItem: With<MenuItem, 'textArea'>) {
-			menuItem.textArea!.classList.remove('vch-enhancer-hide')
-			this.background.classList.remove('vch-enhancer-hide')
-			this.current = menuItem.textArea
-		}
-
-		hide() {
-			this.background.classList.add('vch-enhancer-hide')
-			this.current.classList.add('vch-enhancer-hide')
-		}
+		load()
+		document.body.appendChild(menu)
+		document.body.appendChild(textareaContainer)
+		document.body.appendChild(menuToggleButton)
+		return true
 	}
 }
