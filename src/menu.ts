@@ -74,19 +74,51 @@ const textareaTemplate =
 		return set
 	}
 
+	function fadeIn(element: HTMLElement, ms: number) {
+		element.style.opacity = '0'
+		element.style.transform = 'scale(0.9)'
+		element.style.transition = `transform ${ms / 1000}s, opacity ${ms / 1000}s`
+		setTimeout(() => {
+			element.style.removeProperty('opacity')
+			element.style.removeProperty('transform')
+		}, 0)
+		setTimeout(() => {
+			element.style.removeProperty('transition')
+		}, ms)
+	}
+
+	function fadeOut(element: HTMLElement, ms: number) {
+		element.style.opacity = '0'
+		element.style.transform = 'scale(0.9)'
+		element.style.transition = `transform ${ms / 1000}s, opacity ${ms / 1000}s`
+		setTimeout(() => {
+			element.style.removeProperty('opacity')
+			element.style.removeProperty('transform')
+			element.style.removeProperty('transition')
+		}, ms)
+	}
+
 	export function create(config: Config) {
-		const menu = createElement(template)
+		const menu = {
+			self: createElement(template),
+			show() {
+				menu.self.classList.remove('vch-enhancer-hide')
+				fadeIn(menu.self.children[0] as HTMLElement, 300)
+			},
+			hide() {
+				setTimeout(() => menu.self.classList.add('vch-enhancer-hide'), 300)
+				fadeOut(menu.self.children[0] as HTMLElement, 300)
+			}
+		}
 		const textareaContainer = createElement(textareaTemplate)
 		const menuToggleButton = document.createElement('a')
 		menuToggleButton.href = 'javascript:void(0)'
 		menuToggleButton.classList.add('vch-enhancer-menu-toggle-button')
 		menuToggleButton.innerText = '設定'
-		menuToggleButton.addEventListener('click', () => {
-			menu.classList.remove('vch-enhancer-hide')
-		})
+		menuToggleButton.addEventListener('click', menu.show)
 
 		const items = (function () {
-			const items = menu.querySelectorAll<HTMLDivElement>('.vch-enhancer-menu-item')
+			const items = menu.self.querySelectorAll<HTMLDivElement>('.vch-enhancer-menu-item')
 			return {
 				thumbnail: {
 					self: items[0],
@@ -139,7 +171,7 @@ const textareaTemplate =
 		})()
 
 		const buttons = (function () {
-			const buttons = menu.querySelector('.vch-enhancer-menu-buttons')!
+			const buttons = menu.self.querySelector('.vch-enhancer-menu-buttons')!
 			return {
 				ok: buttons.children[0] as HTMLButtonElement,
 				cancel: buttons.children[1] as HTMLButtonElement
@@ -195,24 +227,24 @@ const textareaTemplate =
 		})
 
 		buttons.ok.addEventListener('click', () => {
-			menu.classList.add('vch-enhancer-hide')
+			menu.hide()
 			save()
 			load()
 		})
 		buttons.cancel.addEventListener('click', () => {
-			menu.classList.add('vch-enhancer-hide')
+			menu.hide()
 			load()
 		})
 
-		menu.addEventListener('mousedown', e => {
-			if (e.target !== menu) {
+		menu.self.addEventListener('mousedown', e => {
+			if (e.target !== menu.self) {
 				return
 			}
 			window.addEventListener('mouseup', () => {
-				if (e.target !== menu) {
+				if (e.target !== menu.self) {
 					return
 				}
-				menu.classList.add('vch-enhancer-hide')
+				menu.hide()
 				load()
 			}, { once: true })
 		})
@@ -229,7 +261,7 @@ const textareaTemplate =
 		})
 
 		load()
-		document.body.appendChild(menu)
+		document.body.appendChild(menu.self)
 		document.body.appendChild(textareaContainer)
 		document.body.appendChild(menuToggleButton)
 		return true

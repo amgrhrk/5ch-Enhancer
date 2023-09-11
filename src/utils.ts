@@ -281,3 +281,65 @@ function enableLazyLoading(posts: Post[], index = 100, target = document.createE
 	})
 	observer.observe(target)
 }
+
+function showOverlayOnHover(posts: Post[]) {
+	const indexToPost = new Map<number, Post>()
+	try {
+		for (const post of posts) {
+			indexToPost.set(post.index, post)
+		}
+	} catch (err) {
+		return
+	}
+	for (const post of posts) {
+		for (const url of post.urls) {
+			const match = decodeURIComponent(url.href).match(/>>(\d+?)$/)
+			if (!match) {
+				continue
+			}
+			const quote = indexToPost.get(Number.parseInt(match[1]))
+			if (!quote) {
+				continue
+			}
+			url.addEventListener('click', (e) => {
+				e.preventDefault()
+				quote.container.children[0].scrollIntoView({ behavior: 'smooth' })
+			})
+			url.addEventListener('mouseenter', () => {
+				let hovering = true
+				document.querySelector('.vch-enhancer-post-overlay')?.remove()
+				const domRect = url.getBoundingClientRect()
+				const overlay = document.createElement('div')
+				overlay.style.top = window.scrollY + domRect.bottom + 'px'
+				overlay.style.left = window.scrollX + domRect.right + 'px'
+				overlay.classList.add('vch-enhancer-post-overlay')
+				for (const child of quote.container.children) {
+					const clone = child.cloneNode(true) as HTMLElement
+					clone.style.margin = '0'
+					clone.style.border = 'none'
+					overlay.appendChild(clone)
+				}
+				overlay.addEventListener('mouseenter', () => {
+					hovering = true
+				})
+				overlay.addEventListener('mouseleave', () => {
+					hovering = false
+					setTimeout(() => {
+						if (!hovering) {
+							overlay.remove()
+						}
+					}, 200)
+				})
+				url.addEventListener('mouseleave', () => {
+					hovering = false
+					setTimeout(() => {
+						if (!hovering) {
+							overlay.remove()
+						}
+					}, 200)
+				})
+				document.body.appendChild(overlay)
+			})
+		}
+	}
+}

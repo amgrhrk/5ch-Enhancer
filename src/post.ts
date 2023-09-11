@@ -30,6 +30,7 @@ abstract class Post {
 	container!: VirtualDiv
 	isHidden: boolean
 	forceHidden: boolean
+	abstract get index(): number // starts at 1
 	abstract get name(): string
 	abstract get isp(): string
 	abstract get id(): string
@@ -116,6 +117,11 @@ class PostVer1 extends Post {
 		this.container = new VirtualDiv(...elements)
 	}
 
+	get index() {
+		const meta = this.container.children[0]
+		return Number.parseInt(meta.innerText.match(/^\d+/)![0])
+	}
+
 	get name(): string {
 		throw new Error('Not Implemented')
 	}
@@ -162,6 +168,10 @@ class PostVer2 extends Post {
 		return container.children[0] as HTMLElement
 	}
 
+	get index() {
+		return Number.parseInt(this.container.children[0].dataset.id!)
+	}
+
 	get name(): string {
 		throw new Error('Not Implemented')
 	}
@@ -206,6 +216,10 @@ class PostVer3 extends Post {
 	private get contentContainer() {
 		const container = this.container.children[0].lastElementChild!
 		return container as HTMLElement
+	}
+
+	get index() {
+		return Number.parseInt(this.container.children[0].dataset.id!)
 	}
 
 	get name(): string {

@@ -153,7 +153,7 @@ class Modal {
 			default:
 				return
 		}
-		const nextImage = this.images.getValue(this.current.index)!
+		const nextImage = this.images.getValue(nextIndex)!
 		if (this.extraKeyDownHandler) {
 			this.extraKeyDownHandler(nextImage)
 		}

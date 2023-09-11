@@ -99,5 +99,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	}
 
+	showOverlayOnHover(posts)
 	enableLazyLoading(posts)
 })
