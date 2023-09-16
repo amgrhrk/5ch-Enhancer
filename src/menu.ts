@@ -1,6 +1,7 @@
 namespace Menu {
-	const template =
-`<div class="vch-enhancer-popup-modal vch-enhancer-hide">
+	const html = String.raw
+	const template = html`
+<div class="vch-enhancer-popup-modal vch-enhancer-hide">
 	<div class="vch-enhancer-menu">
 		<div class="vch-enhancer-menu-item">
 			<label>
@@ -48,8 +49,8 @@ namespace Menu {
 	</div>
 </div>`
 
-const textareaTemplate =
-`<div class="vch-enhancer-popup-modal vch-enhancer-hide">
+const textareaTemplate = html`
+<div class="vch-enhancer-popup-modal vch-enhancer-hide">
 	<div class="vch-enhancer-menu">
 		<textarea class="vch-enhancer-hide"></textarea>
 		<textarea class="vch-enhancer-hide"></textarea>
@@ -59,7 +60,7 @@ const textareaTemplate =
 
 	function createElement(html: string) {
 		const div = document.createElement('div')
-		div.innerHTML = html
+		div.innerHTML = html.trim()
 		return div.children[0] as HTMLElement
 	}
 

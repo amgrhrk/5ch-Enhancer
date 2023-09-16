@@ -52,21 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	}
 
-	if (config.switchToClassicUI) {
-		const urls = document.querySelectorAll('a')
-		for (const url of urls) {
-			try {
-				const urlObj = new URL(url.href)
-				if (urlObj.hostname.includes('.5ch.')) {
-					const index = url.href.indexOf('/read.cgi/')
-					if (index >= 0) {
-						url.href = url.href.substring(0, index + 10) + 'c/' + url.href.substring(index + 10)
-					}
-				}
-			} catch (err) {}
-		}
-	}
-
 	Menu.create(config)
 
 	const posts: Post[] = (function getPosts() {
@@ -81,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		return [...document.querySelectorAll<HTMLElement>('#thread > article')]
 			.map(article => new PostVer3(article))
 	})()
+
 	for (const post of posts) {
 		if (post.nameOrIspIncludesAnyOf(config.blockedUsers)
 			|| post.contentIncludesAnyOf(config.blockedWords)) {
@@ -96,6 +82,21 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 		if (config.embedTweets) {
 			embedTweets(post)
+		}
+	}
+
+	if (config.switchToClassicUI) {
+		const urls = document.querySelectorAll('a')
+		for (const url of urls) {
+			try {
+				const urlObj = new URL(url.href)
+				if (urlObj.hostname.includes('.5ch.')) {
+					const index = url.href.indexOf('/read.cgi/')
+					if (index >= 0) {
+						url.href = url.href.substring(0, index + 10) + 'c/' + url.href.substring(index + 10)
+					}
+				}
+			} catch (err) {}
 		}
 	}
 
