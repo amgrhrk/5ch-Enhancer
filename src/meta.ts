@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         5ch-Enhancer
 // @namespace    0hCM5sa3Sj9BjYg
-// @version      0.2
-// @description  Shows thumbnail previews and tweets for 5ch threads, and more.
-// @description:ja 5ちゃんねるのスレの画像のサムネイルとツイートを表示します+α
-// @description:zh-cn 显示5ch串里图片链接的缩略图
+// @version      0.2.0
+// @description  Shows thumbnail previews, tweets, and blocks trolls for 5ch
+// @description:ja 5ちゃんねるのスレ画像のサムネイルとツイートを表示します+NGユーザー/NGワード/NG画像
+// @description:zh-cn 显示5ch串里图片链接的缩略图+屏蔽用户
 // @author       文件
 // @match        http://*.5ch.net/*
 // @match        https://*.5ch.net/*
