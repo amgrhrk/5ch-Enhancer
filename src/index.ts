@@ -88,15 +88,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	if (config.switchToClassicUI) {
 		const urls = document.querySelectorAll('a')
 		for (const url of urls) {
-			try {
-				const urlObj = new URL(url.href)
-				if (urlObj.hostname.includes('.5ch.')) {
-					const index = url.href.indexOf('/read.cgi/')
-					if (index >= 0) {
-						url.href = url.href.substring(0, index + 10) + 'c/' + url.href.substring(index + 10)
-					}
+			if (is5ch(url.href)) {
+				const index = url.href.indexOf('/read.cgi/')
+				if (index >= 0) {
+					url.href = url.href.substring(0, index + 10) + 'c/' + url.href.substring(index + 10)
 				}
-			} catch (err) {}
+			}
 		}
 	}
 

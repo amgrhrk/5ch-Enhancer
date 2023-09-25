@@ -5,6 +5,22 @@ function insertAfter(referenceNode: Node, newNode: Node) {
 	parentNode.insertBefore(newNode, referenceNode.nextSibling)
 }
 
+function is5ch(url: string) {
+	try {
+		const urlObj = new URL(url)
+		const urlParts = urlObj.hostname.split('.')
+		const domain = urlParts.slice(-2).join('.')
+		return domain === '5ch.net' || domain === 'bbspink.com' || domain === '2ch.sc'
+	} catch (err) {
+		return false
+	}
+}
+
+function scrollIntoView(element: Element, offset: number) {
+	const y = element.getBoundingClientRect().top + window.scrollY + offset
+	window.scrollTo({ top: y, behavior: 'smooth' })
+}
+
 namespace Twitter {
 	let isLoaded = false
 
@@ -283,6 +299,15 @@ function enableLazyLoading(posts: Post[], index = 100, target = document.createE
 }
 
 function showOverlayOnHover(posts: Post[]) {
+	if (posts.length === 0) {
+		return
+	}
+	if (posts[0] instanceof PostVer1) {
+		return
+	}
+	if (posts[0] instanceof PostVer2 && !location.href.includes('/c/')) {
+		return
+	}
 	const indexToPost = new Map<number, Post>()
 	try {
 		for (const post of posts) {
@@ -303,7 +328,7 @@ function showOverlayOnHover(posts: Post[]) {
 			}
 			url.addEventListener('click', (e) => {
 				e.preventDefault()
-				quote.container.children[0].scrollIntoView({ behavior: 'smooth' })
+				scrollIntoView(quote.container.children[0], -55)
 			})
 			url.addEventListener('mouseenter', () => {
 				let hovering = true
@@ -328,7 +353,7 @@ function showOverlayOnHover(posts: Post[]) {
 						if (!hovering) {
 							overlay.remove()
 						}
-					}, 200)
+					}, 500)
 				})
 				url.addEventListener('mouseleave', () => {
 					hovering = false
@@ -336,8 +361,8 @@ function showOverlayOnHover(posts: Post[]) {
 						if (!hovering) {
 							overlay.remove()
 						}
-					}, 200)
-				})
+					}, 500)
+				}, { once: true })
 				document.body.appendChild(overlay)
 			})
 		}
