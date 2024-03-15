@@ -144,7 +144,7 @@ namespace Images {
 		if (!formatMatch) {
 			return null
 		}
-		const format = formatMatch[0]
+		const format = formatMatch[0] === 'jpeg' ? 'jpg' : formatMatch[0]
 		const fragment = document.createDocumentFragment()
 		const media = createMediaElement(src, format, modal)
 		if (!config.blockImages || !isHashable(media, format)) {
@@ -256,7 +256,7 @@ function embedThumbnails(post: Post, config: Config, modal: Modal, hash: Images.
 
 function embedTweets(post: Post) {
 	// Intended to not wait
-	post.urls.filter(url => url.href.match(/twitter\.com\/.+?\/status\/./))
+	post.urls.filter(url => url.href.match(/(?:twitter|x)\.com\/.+?\/status\/./))
 		.forEach(async url => {
 			try {
 				const tweet = await Twitter.create(url.href)
